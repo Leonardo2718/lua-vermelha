@@ -1,0 +1,3 @@
+[submodule "omr"]
+	path = omr
+	url = https://github.com/eclipse/omr
