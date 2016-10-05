@@ -27,6 +27,7 @@
 #include "ltable.h"
 #include "ltm.h"
 
+#include "lvermelha.h"
 
 #if !defined(LUAI_GCPAUSE)
 #define LUAI_GCPAUSE	200  /* 200% */
@@ -329,7 +330,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   g->gcpause = LUAI_GCPAUSE;
   g->gcstepmul = LUAI_GCMUL;
   for (i=0; i < LUA_NUMTAGS; i++) g->mt[i] = NULL;
-  if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK) {
+  if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK || luaJ_initJit() != 0) {
     /* memory allocation error: free partial state */
     close_state(L);
     L = NULL;
@@ -339,6 +340,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
 
 
 LUA_API void lua_close (lua_State *L) {
+  luaJ_stopJit();
   L = G(L)->mainthread;  /* only the main thread can be closed */
   lua_lock(L);
   close_state(L);

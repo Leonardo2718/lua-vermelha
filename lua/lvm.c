@@ -30,6 +30,8 @@
 #include "ltm.h"
 #include "lvm.h"
 
+#include "lvermelha.h"
+
 
 /* limit for table tag-method chains (to avoid loops) */
 #define MAXTAGLOOP	2000
@@ -790,6 +792,13 @@ void luaV_execute (lua_State *L) {
   StkId base;
   ci->callstatus |= CIST_FRESH;  /* fresh invocation of 'luaV_execute" */
  newframe:  /* reentry point when frame changes (call/return) */
+  /* dispatch the JIT */
+  Proto* p = getproto(ci->func);
+  lua_JitFunction f = luaJ_compile(p);
+  /* if a JITed function is available for execution, call it */
+  if (f) {
+     f(L);
+  }
   lua_assert(ci == L->ci);
   cl = clLvalue(ci->func);  /* local reference to function's closure */
   k = cl->p->k;  /* local reference to function's constant table */
