@@ -1,5 +1,7 @@
 // vermelha headers
 #include "luavm.hpp"
+#include "ltypedictionary.hpp"
+#include "lfunctionbuilder.hpp"
 
 // JitBuilder headers
 #include "Jit.hpp"
@@ -19,5 +21,12 @@ void luaJ_stopJit() {
 }
 
 lua_JitFunction luaJ_compile(Proto* p) {
-   return nullptr;
+   Lua::TypeDictionary types;
+   uint8_t* entry = nullptr;
+   Lua::FunctionBuilder f(p, &types);
+   int32_t rc = compileMethodBuilder(&f, &entry);
+   if (rc == 0)
+      return (lua_JitFunction)entry;
+   else
+      return nullptr;
 }
