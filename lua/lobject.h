@@ -402,6 +402,11 @@ typedef struct LocVar {
 
 
 /*
+** Type of JITed function body
+*/
+typedef void (*lua_JitFunction)(lua_State*);
+
+/*
 ** Function Prototypes
 */
 typedef struct Proto {
@@ -419,6 +424,7 @@ typedef struct Proto {
   int lastlinedefined;  /* debug information  */
   TValue *k;  /* constants used by the function */
   Instruction *code;  /* opcodes */
+  lua_JitFunction compiledcode; /* function body compiled by JIT */
   struct Proto **p;  /* functions defined inside the function */
   int *lineinfo;  /* map from opcodes to source lines (debug information) */
   LocVar *locvars;  /* information about local variables (debug information) */

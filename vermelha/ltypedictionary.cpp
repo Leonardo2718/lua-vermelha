@@ -10,7 +10,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    
    // struct TValue
    luaTypes.TValue = DefineStruct("TValue");
-   DefineField("TValue", "value_", luaTypes.lua_Integer); // this should actually be a union
+   DefineField("TValue", "value_", Int64); // this should actually be a union
    DefineField("TValue", "tt_", Int32);
    CloseStruct("TValue");
    

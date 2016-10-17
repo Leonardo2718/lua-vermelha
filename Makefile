@@ -4,6 +4,10 @@ VERMELHA_DIR?= $(PWD)/vermelha
 VERMELHA_NAME?= vermelha
 VERMELHA_LIB?= lib$(VERMELHA_NAME).a
 VERMELHA_PATH?= $(VERMELHA_DIR)/$(VERMELHA_LIB)
+MYCFLAGS?=
+CXX_FLAGS_EXTRA?=
+
+
 
 .PHONY: all lua luac $(VERMELHA_LIB)
 
@@ -11,11 +15,11 @@ all: lua $(VERMELHA_PATH)
 
 lua luac: $(VERMELHA_PATH)
 #	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA_NAME)"
-	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA_NAME) -ljitbuilder"
+	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA_NAME) -ljitbuilder"
 #	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
 
 $(VERMELHA_PATH):
-	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX_FLAGS_EXTRA="-fpermissive"
+	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX_FLAGS_EXTRA="-fpermissive -g"
 
 clean:
 	cd $(LUA_DIR) && $(MAKE) clean
