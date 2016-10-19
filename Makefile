@@ -1,25 +1,42 @@
+LUA?= lua
+LUAC?= luac
+VERMELHA?= vermelha
+
+LUA_LIB?= liblua.a
+VERMELHA_LIB?= lib$(VERMELHA).a
+JITBUILDER_LIB?= libjitbuilder.a
+
 LUA_DIR?= $(PWD)/lua
 VERMELHA_DIR?= $(PWD)/vermelha
+JITBUILDER_DIR?= $(PWD)/omr/jitbuilder
 
-VERMELHA_NAME?= vermelha
-VERMELHA_LIB?= lib$(VERMELHA_NAME).a
+LUA_PATH?= $(LUA_DIR)/$(LUA)
 VERMELHA_PATH?= $(VERMELHA_DIR)/$(VERMELHA_LIB)
-MYCFLAGS?=
-CXX_FLAGS_EXTRA?=
+JITBUILDER_PATH?= $(JITBUILDER_DIR)/$(JITBUILDER_LIB)
 
 
+.PHONY: all lua luac $(VERMELHA) $(VERMELHA_LIB) $(VERMELHA_PATH)
 
-.PHONY: all lua luac $(VERMELHA_LIB)
+all: $(LUA) $(LUAC) $(VERMELHA)
 
-all: lua $(VERMELHA_PATH)
+$(LUAC): $(LUA)
+$(LUA): $(VERMELHA_LIB)
+#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA)"
+	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA) -ljitbuilder -ldl"
+#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
 
-lua luac: $(VERMELHA_PATH)
-#	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA_NAME)"
-	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA_NAME) -ljitbuilder"
-#	cd $(LUA_DIR) && $(MAKE) PLAT=linux CC="g++" MYCFLAGS="-fpermissive" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
+#$(LUAC): $(VERMELHA_LIB)
+#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA)"
+#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA) -ljitbuilder -ldl"
+#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
 
+$(VERMELHA): $(VERMELHA_PATH)
+$(VERMELHA_LIB): $(VERMELHA_PATH)
 $(VERMELHA_PATH):
 	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX_FLAGS_EXTRA="-fpermissive -g"
+
+$(JITBUILDER_LIB):
+	cd $(JITBUILDER_DIR) && $(MAKE) CXX_FLAGS_EXTRA="-g"
 
 clean:
 	cd $(LUA_DIR) && $(MAKE) clean

@@ -57,12 +57,15 @@ sharedlib: $(SHAREDLIB_PATH)
 
 vermelhaobj: $(VERMELHAOBJ_PATH)
 
+$(STATICLIB_NAME): $(STATICLIB_PATH)
 $(STATICLIB_PATH): $(OBJECT_FILES)
 	$(AR) -r $@ $(OBJECT_FILES)
 
+$(SHAREDLIB_NAME): $(SHAREDLIB_PATH)
 $(SHAREDLIB_PATH): $(OBJECT_FILES)
 	$(CXX) -shared $(CXX_FLAGS) -o $@ $(OBJECT_FILES) ../omr/jitbuilder/release/libjitbuilder.a -ldl
 
+$(VERMELHAOBJ_NAME): $(VERMELHAOBJ_PATH)
 $(VERMELHAOBJ_PATH): $(OBJECT_FILES)
 	$(LD) -Ur -o $@ $(OBJECT_FILES) ../omr/jitbuilder/release/libjitbuilder.a -L/lib -L/usr/lib -lstdc++
 

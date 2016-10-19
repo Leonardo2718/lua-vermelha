@@ -9,6 +9,14 @@ static void printAddr(unsigned char* addr) {
    printf("Compiled! (%p)\n", addr);
 }
 
+static void printBase(unsigned char* addr) {
+   printf("base = (%p)\n", addr);
+}
+
+static void printRA(unsigned char* addr) {
+   printf("ra = (%p)\n", addr);
+}
+
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
 
@@ -32,7 +40,9 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    DefineReturnType(NoType);
    //setUseBytecodeBuilders();
    
-   DefineFunction("printAddr", "0", "0", (void*)printAddr, NoType, 1, Address);
+   DefineFunction((char*)"printAddr", (char*)"0", (char*)"0", (void*)printAddr, NoType, 1, Address);
+   DefineFunction((char*)"printBase", (char*)"0", (char*)"0", (void*)printBase, NoType, 1, Address);
+   DefineFunction((char*)"printRA", (char*)"0", (char*)"0", (void*)printRA, NoType, 1, Address);
 }
     
 
@@ -46,14 +56,14 @@ bool Lua::FunctionBuilder::buildIL() {
 
    for (auto i = instructions; i - instructions < instructionCount; ++i) {
       auto arg_a = GETARG_A(*i);
-      auto ra = Add(base, ConstInt32(arg_a*(sizeof(TValue))));
+      auto ra = Add(base, Mul(ConstInt32(arg_a), ConstInt32((sizeof(TValue)))));
+      //auto ra = IndexAt(luaTypes.StkId, base, ConstInt32(arg_a)); // IndexAt does not yet support arrays of structs
 
       auto opcode = GET_OPCODE(*i);
       if (opcode == OP_LOADK) {
          // rb = k + GETARG_Bx(i);
          auto arg_b = GETARG_Bx(*i);
-         auto _rb = prototype->k + arg_b;
-         auto rb = ConstInt64(_rb);
+         auto rb = ConstInt64(prototype->k + arg_b);
 
          // *ra = *rb;
          auto rb_value = LoadIndirect("TValue", "value_", rb);
@@ -67,7 +77,8 @@ bool Lua::FunctionBuilder::buildIL() {
 
       // pc++;
       auto pc = LoadIndirect("CallInfo", "u_l_savedpc", ci);
-      StoreIndirect("CallInfo", "u_l_savedpc", ci, Add(pc, ConstInt32(1*sizeof(Instruction))));
+      auto newpc = IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction), pc, ConstInt32(1));
+      StoreIndirect("CallInfo", "u_l_savedpc", ci, newpc);
    }
 
    StoreIndirect("lua_State", "ci", L, ci);
