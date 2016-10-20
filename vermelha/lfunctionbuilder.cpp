@@ -31,10 +31,16 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    DefineParameter("L", types->PointerTo("lua_State"));
    DefineReturnType(NoType);
    //setUseBytecodeBuilders();
-   
+
+   DefineFunction((char*)"luaD_poscall", (char*)"ldo.c", (char*)"453",
+                  (void*)luaD_poscall, Int32,
+                  4,
+                  types->PointerTo(luaTypes.lua_State),
+                  types->PointerTo(luaTypes.CallInfo),
+                  luaTypes.StkId,
+                  Int32);
    DefineFunction((char*)"printAddr", (char*)"0", (char*)"0", (void*)printAddr, NoType, 1, Address);
 }
-    
 
 bool Lua::FunctionBuilder::buildIL() {
    auto instructionCount = prototype->sizecode;
@@ -60,6 +66,30 @@ bool Lua::FunctionBuilder::buildIL() {
          StoreIndirect("TValue", "value_", ra, rb_value);
          StoreIndirect("TValue", "tt_", ra, rb_tt);
       }
+      else if (opcode == OP_RETURN) {
+         auto arg_b = GETARG_B(*i);
+         Store("arg_b", ConstInt32(arg_b));
+         Store("arg_b",
+               Call("luaD_poscall", 4, L, ci, ra, (arg_b != 0 ? ConstInt32(arg_b - 1) :
+                                                   IndexAt(luaTypes.StkId,
+                                                           LoadIndirect("lua_State", "top", L),
+                                                           Sub(ConstInt32(0), ra)))));
+
+         // Cheat: because of where the JIT dispatch happens in the VM, a JITed function can
+         //        never be a fresh interpreter invocation. We can therefore safely skip the
+         //        check and do the cleanup.
+         //
+         // Note:  because of where the JIT dispatch happens in the VM, the `ci = L->ci` is
+         //        done by the interpreter immediately after the JIT/JITed function returns.
+         TR::IlBuilder* resetTop = nullptr;
+         IfThen(&resetTop, NotEqualTo(Load("arg_b"), ConstInt32(0)));
+         resetTop->StoreIndirect("lua_State", "top", L, LoadIndirect("CallInfo", "top", ci));
+
+         // Saving ci (into L->ci) is not needed as it is done for us by `luaD_poscall`
+         Store("L", L);
+         Return();
+         return true;
+      }
       else {
          break;
       }
@@ -70,8 +100,5 @@ bool Lua::FunctionBuilder::buildIL() {
       StoreIndirect("CallInfo", "u_l_savedpc", ci, newpc);
    }
 
-   StoreIndirect("lua_State", "ci", L, ci);
-   Store("L", L);
-   Return();
-   return true;
+   return false;
 }

@@ -10,6 +10,7 @@ extern "C" {
 #include "lua/lobject.h"
 #include "lua/ltm.h"
 #include "lua/lstate.h"
+#include "lua/ldo.h"
 #include "lua/ldebug.h"
 #include "lua/lvermelha.h"
 
