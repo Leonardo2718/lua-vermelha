@@ -12,6 +12,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.TValue = DefineStruct("TValue");
    DefineField("TValue", "value_", Int64); // this should actually be a union
    DefineField("TValue", "tt_", Int32);
+   DefineField("TValue", "__padding0__", Int32);
    CloseStruct("TValue");
    
    luaTypes.StkId = PointerTo("TValue"); // stack index

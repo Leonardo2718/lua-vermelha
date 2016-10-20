@@ -1,3 +1,6 @@
+CC?= gcc
+CXX?= g++
+
 LUA?= lua
 LUAC?= luac
 VERMELHA?= vermelha
@@ -22,7 +25,7 @@ all: $(LUA) $(LUAC) $(VERMELHA)
 $(LUAC): $(LUA)
 $(LUA): $(VERMELHA_LIB)
 #	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA)"
-	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA) -ljitbuilder -ldl"
+	cd $(LUA_DIR) && $(MAKE) linux CC="$(CXX)" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA) -ljitbuilder -ldl"
 #	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
 
 #$(LUAC): $(VERMELHA_LIB)
@@ -33,10 +36,10 @@ $(LUA): $(VERMELHA_LIB)
 $(VERMELHA): $(VERMELHA_PATH)
 $(VERMELHA_LIB): $(VERMELHA_PATH)
 $(VERMELHA_PATH):
-	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX_FLAGS_EXTRA="-fpermissive -g"
+	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX="$(CXX)" CXX_FLAGS_EXTRA="-fpermissive -g"
 
 $(JITBUILDER_LIB):
-	cd $(JITBUILDER_DIR) && $(MAKE) CXX_FLAGS_EXTRA="-g"
+	cd $(JITBUILDER_DIR) && $(MAKE) CXX="$(CXX)" CXX_FLAGS_EXTRA="-g"
 
 clean:
 	cd $(LUA_DIR) && $(MAKE) clean

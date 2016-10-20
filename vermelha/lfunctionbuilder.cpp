@@ -9,14 +9,6 @@ static void printAddr(unsigned char* addr) {
    printf("Compiled! (%p)\n", addr);
 }
 
-static void printBase(unsigned char* addr) {
-   printf("base = (%p)\n", addr);
-}
-
-static void printRA(unsigned char* addr) {
-   printf("ra = (%p)\n", addr);
-}
-
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
 
@@ -41,8 +33,6 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    //setUseBytecodeBuilders();
    
    DefineFunction((char*)"printAddr", (char*)"0", (char*)"0", (void*)printAddr, NoType, 1, Address);
-   DefineFunction((char*)"printBase", (char*)"0", (char*)"0", (void*)printBase, NoType, 1, Address);
-   DefineFunction((char*)"printRA", (char*)"0", (char*)"0", (void*)printRA, NoType, 1, Address);
 }
     
 
@@ -56,14 +46,13 @@ bool Lua::FunctionBuilder::buildIL() {
 
    for (auto i = instructions; i - instructions < instructionCount; ++i) {
       auto arg_a = GETARG_A(*i);
-      auto ra = Add(base, Mul(ConstInt32(arg_a), ConstInt32((sizeof(TValue)))));
-      //auto ra = IndexAt(luaTypes.StkId, base, ConstInt32(arg_a)); // IndexAt does not yet support arrays of structs
+      auto ra = IndexAt(luaTypes.StkId, base, ConstInt32(arg_a));
 
       auto opcode = GET_OPCODE(*i);
       if (opcode == OP_LOADK) {
          // rb = k + GETARG_Bx(i);
          auto arg_b = GETARG_Bx(*i);
-         auto rb = ConstInt64(prototype->k + arg_b);
+         auto rb = IndexAt(typeDictionary()->PointerTo(luaTypes.TValue), ConstAddress((void*)(prototype->k)), ConstInt32(arg_b));
 
          // *ra = *rb;
          auto rb_value = LoadIndirect("TValue", "value_", rb);
