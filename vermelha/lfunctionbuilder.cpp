@@ -30,7 +30,7 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    DefineName(func_name_buff);
    DefineParameter("L", types->PointerTo("lua_State"));
    DefineReturnType(NoType);
-   //setUseBytecodeBuilders();
+   setUseBytecodeBuilders();
 
    DefineFunction((char*)"luaD_poscall", (char*)"ldo.c", (char*)"453",
                   (void*)luaD_poscall, Int32,
@@ -46,34 +46,73 @@ bool Lua::FunctionBuilder::buildIL() {
    auto instructionCount = prototype->sizecode;
    auto instructions = prototype->code;
 
-   auto L = Load("L");
-   auto ci = LoadIndirect("lua_State", "ci", L);
-   auto base = LoadIndirect("CallInfo", "u_l_base", ci);
+   TR::BytecodeBuilder** bytecodeBuilders = new TR::BytecodeBuilder*[instructionCount];
 
-   for (auto i = instructions; i - instructions < instructionCount; ++i) {
-      auto arg_a = GETARG_A(*i);
-      auto ra = IndexAt(luaTypes.StkId, base, ConstInt32(arg_a));
+   for (auto i = 0; i < instructionCount; ++i) {
+      auto opcode = GET_OPCODE(instructions[i]);
+      bytecodeBuilders[i] = OrphanBytecodeBuilder(i, (char*)luaP_opnames[opcode]);
+   }
 
-      auto opcode = GET_OPCODE(*i);
+   Store("ci", LoadIndirect("lua_State", "ci", Load("L")));
+   Store("base", LoadIndirect("CallInfo", "u_l_base", Load("ci")));
+
+   // make the last return instruction (always inserted by the VM) a dummy fallthrough
+   // that never gets taken to avoid a `treetops are not forming a single doubly linked list`
+   // assertion failure
+   auto dummy = OrphanBuilder();
+   dummy->AppendBuilder(bytecodeBuilders[instructionCount - 1]);
+   IfThen(&dummy, ConstInt32(0));
+
+   AppendBuilder(bytecodeBuilders[0]);
+
+   for (auto i = 0; i < instructionCount; ++i) {
+      auto instruction = instructions[i];
+      auto builder = bytecodeBuilders[i];
+
+      auto nextBuilder = (i < instructionCount - 1) ? bytecodeBuilders[i + 1] : nullptr;
+
+      // ra = base + GETARG_A(i)
+      auto arg_a = GETARG_A(instruction);
+      builder->Store("ra",
+      builder->      IndexAt(luaTypes.StkId,
+      builder->              Load("base"),
+      builder->              ConstInt32(arg_a)));
+
+      auto opcode = GET_OPCODE(instruction);
       if (opcode == OP_LOADK) {
          // rb = k + GETARG_Bx(i);
-         auto arg_b = GETARG_Bx(*i);
-         auto rb = IndexAt(typeDictionary()->PointerTo(luaTypes.TValue), ConstAddress((void*)(prototype->k)), ConstInt32(arg_b));
+         auto arg_b = GETARG_Bx(instruction);
+         builder->Store("rb",
+         builder->   IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+         builder->           ConstAddress((void*)(prototype->k)),
+         builder->           ConstInt32(arg_b)));
 
          // *ra = *rb;
-         auto rb_value = LoadIndirect("TValue", "value_", rb);
-         auto rb_tt = LoadIndirect("TValue", "tt_", rb);
-         StoreIndirect("TValue", "value_", ra, rb_value);
-         StoreIndirect("TValue", "tt_", ra, rb_tt);
+         auto rb_value = builder->LoadIndirect("TValue", "value_", builder->Load("rb"));
+         auto rb_tt = builder->LoadIndirect("TValue", "tt_", builder->Load("rb"));
+         builder->StoreIndirect("TValue", "value_", builder->Load("ra"), rb_value);
+         builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);
       }
       else if (opcode == OP_RETURN) {
-         auto arg_b = GETARG_B(*i);
-         Store("arg_b", ConstInt32(arg_b));
-         Store("arg_b",
-               Call("luaD_poscall", 4, L, ci, ra, (arg_b != 0 ? ConstInt32(arg_b - 1) :
-                                                   IndexAt(luaTypes.StkId,
-                                                           LoadIndirect("lua_State", "top", L),
-                                                           Sub(ConstInt32(0), ra)))));
+         auto arg_b = GETARG_B(instruction);
+         // b = GETARG_B(i
+         builder->Store("b",
+         builder->      ConstInt32(arg_b));
+
+         // b = luaD_poscall(L, ci, ra, (b != 0 ? b - 1 : cast_int(L->top - ra)))
+         builder->Store("b",
+         builder->      Call("luaD_poscall", 4,
+         builder->           Load("L"),
+         builder->           Load("ci"),
+         builder->           Load("ra"),
+                             (arg_b != 0 ?
+         builder->                        ConstInt32(arg_b - 1) :
+         builder->                                          IndexAt(luaTypes.StkId,
+         builder->                                                  LoadIndirect("lua_State", "top",
+         builder->                                                               Load("L")),
+         builder->                                                  Sub(
+         builder->                                                      ConstInt32(0),
+         builder->                                                      Load("ra"))))));
 
          // Cheat: because of where the JIT dispatch happens in the VM, a JITed function can
          //        never be a fresh interpreter invocation. We can therefore safely skip the
@@ -81,24 +120,35 @@ bool Lua::FunctionBuilder::buildIL() {
          //
          // Note:  because of where the JIT dispatch happens in the VM, the `ci = L->ci` is
          //        done by the interpreter immediately after the JIT/JITed function returns.
-         TR::IlBuilder* resetTop = nullptr;
-         IfThen(&resetTop, NotEqualTo(Load("arg_b"), ConstInt32(0)));
-         resetTop->StoreIndirect("lua_State", "top", L, LoadIndirect("CallInfo", "top", ci));
 
-         // Saving ci (into L->ci) is not needed as it is done for us by `luaD_poscall`
-         Store("L", L);
-         Return();
-         return true;
+         // if (b) L->top = ci->top;
+         TR::IlBuilder* resetTop = nullptr;
+         builder->IfThen(&resetTop,
+         builder->       NotEqualTo(
+         builder->                  Load("b"),
+         builder->                  ConstInt32(0)));
+
+         resetTop->StoreIndirect("lua_State", "top",
+         resetTop->              Load("L"),
+         resetTop->              LoadIndirect("CallInfo", "top",
+         resetTop->                           Load("ci")));
+
+         builder->Return();
+         nextBuilder = nullptr;   // prevent addition of a fallthrough path
       }
       else {
-         break;
+         return false;
       }
 
       // pc++;
-      auto pc = LoadIndirect("CallInfo", "u_l_savedpc", ci);
-      auto newpc = IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction), pc, ConstInt32(1));
-      StoreIndirect("CallInfo", "u_l_savedpc", ci, newpc);
+      auto pc = builder->LoadIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"));
+      auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
+                                    pc,
+                   builder->        ConstInt32(1));
+      builder->StoreIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"), newpc);
+
+      if (nextBuilder) builder->AddFallThroughBuilder(nextBuilder);
    }
 
-   return false;
+   return true;
 }
