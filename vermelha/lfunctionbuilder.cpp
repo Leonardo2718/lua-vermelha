@@ -2,9 +2,6 @@
 #include "lfunctionbuilder.hpp"
 #include <stdio.h>
 
-// JitBuilder headers
-#include "ilgen/BytecodeBuilder.hpp"
-
 static void printAddr(unsigned char* addr) {
    printf("Compiled! (%p)\n", addr);
 }
@@ -78,65 +75,15 @@ bool Lua::FunctionBuilder::buildIL() {
       builder->              Load("base"),
       builder->              ConstInt32(arg_a)));
 
-      auto opcode = GET_OPCODE(instruction);
-      if (opcode == OP_LOADK) {
-         // rb = k + GETARG_Bx(i);
-         auto arg_b = GETARG_Bx(instruction);
-         builder->Store("rb",
-         builder->   IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-         builder->           ConstAddress((void*)(prototype->k)),
-         builder->           ConstInt32(arg_b)));
-
-         // *ra = *rb;
-         auto rb_value = builder->LoadIndirect("TValue", "value_", builder->Load("rb"));
-         auto rb_tt = builder->LoadIndirect("TValue", "tt_", builder->Load("rb"));
-         builder->StoreIndirect("TValue", "value_", builder->Load("ra"), rb_value);
-         builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);
-      }
-      else if (opcode == OP_RETURN) {
-         auto arg_b = GETARG_B(instruction);
-         // b = GETARG_B(i
-         builder->Store("b",
-         builder->      ConstInt32(arg_b));
-
-         // b = luaD_poscall(L, ci, ra, (b != 0 ? b - 1 : cast_int(L->top - ra)))
-         builder->Store("b",
-         builder->      Call("luaD_poscall", 4,
-         builder->           Load("L"),
-         builder->           Load("ci"),
-         builder->           Load("ra"),
-                             (arg_b != 0 ?
-         builder->                        ConstInt32(arg_b - 1) :
-         builder->                                          IndexAt(luaTypes.StkId,
-         builder->                                                  LoadIndirect("lua_State", "top",
-         builder->                                                               Load("L")),
-         builder->                                                  Sub(
-         builder->                                                      ConstInt32(0),
-         builder->                                                      Load("ra"))))));
-
-         // Cheat: because of where the JIT dispatch happens in the VM, a JITed function can
-         //        never be a fresh interpreter invocation. We can therefore safely skip the
-         //        check and do the cleanup.
-         //
-         // Note:  because of where the JIT dispatch happens in the VM, the `ci = L->ci` is
-         //        done by the interpreter immediately after the JIT/JITed function returns.
-
-         // if (b) L->top = ci->top;
-         TR::IlBuilder* resetTop = nullptr;
-         builder->IfThen(&resetTop,
-         builder->       NotEqualTo(
-         builder->                  Load("b"),
-         builder->                  ConstInt32(0)));
-
-         resetTop->StoreIndirect("lua_State", "top",
-         resetTop->              Load("L"),
-         resetTop->              LoadIndirect("CallInfo", "top",
-         resetTop->                           Load("ci")));
-
-         builder->Return();
+      switch (GET_OPCODE(instruction)) {
+      case OP_LOADK:
+         do_loadk(builder, instruction);
+         break;
+      case OP_RETURN:
+         do_return(builder, instruction);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
-      }
-      else {
+         break;
+      default:
          return false;
       }
 
@@ -151,4 +98,62 @@ bool Lua::FunctionBuilder::buildIL() {
    }
 
    return true;
+}
+
+bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction instruction) {
+   // rb = k + GETARG_Bx(i);
+   auto arg_b = GETARG_Bx(instruction);
+   builder->Store("rb",
+   builder->   IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   builder->           ConstAddress((void*)(prototype->k)),
+   builder->           ConstInt32(arg_b)));
+
+   // *ra = *rb;
+   auto rb_value = builder->LoadIndirect("TValue", "value_", builder->Load("rb"));
+   auto rb_tt = builder->LoadIndirect("TValue", "tt_", builder->Load("rb"));
+   builder->StoreIndirect("TValue", "value_", builder->Load("ra"), rb_value);
+   builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);
+}
+
+bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction instruction) {
+   auto arg_b = GETARG_B(instruction);
+   // b = GETARG_B(i)
+   builder->Store("b",
+   builder->      ConstInt32(arg_b));
+
+   // b = luaD_poscall(L, ci, ra, (b != 0 ? b - 1 : cast_int(L->top - ra)))
+   builder->Store("b",
+   builder->      Call("luaD_poscall", 4,
+   builder->           Load("L"),
+   builder->           Load("ci"),
+   builder->           Load("ra"),
+                       (arg_b != 0 ?
+   builder->                        ConstInt32(arg_b - 1) :
+   builder->                                          IndexAt(luaTypes.StkId,
+   builder->                                                  LoadIndirect("lua_State", "top",
+   builder->                                                               Load("L")),
+   builder->                                                  Sub(
+   builder->                                                      ConstInt32(0),
+   builder->                                                      Load("ra"))))));
+
+   // Cheat: because of where the JIT dispatch happens in the VM, a JITed function can
+   //        never be a fresh interpreter invocation. We can therefore safely skip the
+   //        check and do the cleanup.
+   //
+   // Note:  because of where the JIT dispatch happens in the VM, the `ci = L->ci` is
+   //        done by the interpreter immediately after the JIT/JITed function returns.
+
+   // if (b) L->top = ci->top;
+   TR::IlBuilder* resetTop = nullptr;
+   builder->IfThen(&resetTop,
+   builder->       NotEqualTo(
+   builder->                  Load("b"),
+   builder->                  ConstInt32(0)));
+
+   resetTop->StoreIndirect("lua_State", "top",
+   resetTop->              Load("L"),
+   resetTop->              LoadIndirect("CallInfo", "top",
+   resetTop->                           Load("ci")));
+
+   builder->Return();
 }
