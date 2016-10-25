@@ -53,13 +53,6 @@ bool Lua::FunctionBuilder::buildIL() {
    Store("ci", LoadIndirect("lua_State", "ci", Load("L")));
    Store("base", LoadIndirect("CallInfo", "u_l_base", Load("ci")));
 
-   // make the last return instruction (always inserted by the VM) a dummy fallthrough
-   // that never gets taken to avoid a `treetops are not forming a single doubly linked list`
-   // assertion failure
-   auto dummy = OrphanBuilder();
-   dummy->AppendBuilder(bytecodeBuilders[instructionCount - 1]);
-   IfThen(&dummy, ConstInt32(0));
-
    AppendBuilder(bytecodeBuilders[0]);
 
    for (auto i = 0; i < instructionCount; ++i) {
@@ -87,14 +80,16 @@ bool Lua::FunctionBuilder::buildIL() {
          return false;
       }
 
-      // pc++;
-      auto pc = builder->LoadIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"));
-      auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
-                                    pc,
-                   builder->        ConstInt32(1));
-      builder->StoreIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"), newpc);
+      if (nextBuilder) {
+         // pc++;
+         auto pc = builder->LoadIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"));
+         auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
+                                       pc,
+                      builder->        ConstInt32(1));
+         builder->StoreIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"), newpc);
 
-      if (nextBuilder) builder->AddFallThroughBuilder(nextBuilder);
+         builder->AddFallThroughBuilder(nextBuilder);
+      }
    }
 
    return true;
@@ -129,12 +124,12 @@ bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction i
    builder->           Load("ra"),
                        (arg_b != 0 ?
    builder->                        ConstInt32(arg_b - 1) :
-   builder->                                          IndexAt(luaTypes.StkId,
-   builder->                                                  LoadIndirect("lua_State", "top",
-   builder->                                                               Load("L")),
-   builder->                                                  Sub(
-   builder->                                                      ConstInt32(0),
-   builder->                                                      Load("ra"))))));
+   builder->                        IndexAt(luaTypes.StkId,
+   builder->                                LoadIndirect("lua_State", "top",
+   builder->                                             Load("L")),
+   builder->                                Sub(
+   builder->                                    ConstInt32(0),
+   builder->                                    Load("ra"))))));
 
    // Cheat: because of where the JIT dispatch happens in the VM, a JITed function can
    //        never be a fresh interpreter invocation. We can therefore safely skip the
