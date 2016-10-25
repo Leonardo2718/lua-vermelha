@@ -1,5 +1,6 @@
 #include "ltypedictionary.hpp"
-
+#include "luavm.hpp"
+#include <stdio.h>
 Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    // common lua types
    luaTypes.lu_byte         = Int8;
@@ -7,16 +8,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.lua_Unsigned    = luaTypes.lua_Integer;
    luaTypes.lua_Number      = Float;
    luaTypes.Instruction     = luaTypes.lua_Integer;
-   
-   // struct TValue
-   luaTypes.TValue = DefineStruct("TValue");
-   DefineField("TValue", "value_", Int64); // this should actually be a union
-   DefineField("TValue", "tt_", Int32);
-   DefineField("TValue", "__padding0__", Int32);
-   CloseStruct("TValue");
-   
-   luaTypes.StkId = PointerTo("TValue"); // stack index
-   
+
    // placeholder and convenience types
    auto pGCObject_t = Address;
    auto pGlobalState_t = Address; // state of all threads
@@ -28,6 +20,49 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    auto l_signalT_t = Sig_Atomic_t;
    auto lua_KContext_t = Address;
    auto pInstruction = PointerTo(luaTypes.Instruction);
+   auto pProto_t = Address;
+
+   // lobject.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   // struct TValue
+   luaTypes.TValue = DefineStruct("TValue");
+   DefineField("TValue", "value_", Int64); // this should actually be a union
+   DefineField("TValue", "tt_", Int32);
+   DefineField("TValue", "__padding0__", Int32);
+   CloseStruct("TValue");
+
+   luaTypes.StkId = PointerTo("TValue"); // stack index
+
+   // struct LClosure
+   luaTypes.LClosure = DefineStruct("LClosure");              // ClosureHeader
+   DefineField("LClosure", "next", pGCObject_t);              //      | CommonHeader
+   DefineField("LClosure", "tt", luaTypes.lu_byte);           //      |      |
+   DefineField("LClosure", "marked", luaTypes.lu_byte);       //      |      |
+   DefineField("LClosure", "nupvalues", luaTypes.lu_byte);    //      |
+   DefineField("LClosure", "gclist", pGCObject_t);            //      |
+   DefineField("LClosure", "p", pProto_t);
+   DefineField("LClosure", "upvals", pAddress);
+   CloseStruct("LClosure");
+
+   // lfunc.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   luaTypes.UpVal = DefineStruct("UpVal");
+   DefineField("UpVal", "v", PointerTo(luaTypes.TValue));  // points to stack or to its own value
+   DefineField("UpVal", "refcount", Int64);                // reference counter
+/*
+   union {
+      struct {                                             // (when open)
+         UpVal* next;                                      // linked list
+         int touched;                                      // mark to avoid cycles with dead threads
+      } open;
+*/
+   DefineField("UpVal", "u_value", luaTypes.TValue); /* TValue value; */ // the value (when closed)
+/*
+   } u;
+*/
+   CloseStruct("UpVal");
+
+   // lstate.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    // struct CallInfo (Information about a call)
    luaTypes.CallInfo = DefineStruct("CallInfo");

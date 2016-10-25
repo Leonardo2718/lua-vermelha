@@ -21,8 +21,10 @@ public:
       TR::IlType* lua_Unsigned;
       TR::IlType* lua_Number;
       TR::IlType* Instruction;
-      TR::IlType* StkId;
       TR::IlType* TValue;
+      TR::IlType* StkId;
+      TR::IlType* LClosure;
+      TR::IlType* UpVal;
       TR::IlType* CallInfo;
       TR::IlType* lua_State;
    };
