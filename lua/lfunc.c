@@ -105,6 +105,7 @@ Proto *luaF_newproto (lua_State *L) {
   f->sizep = 0;
   f->code = NULL;
   f->compiledcode = NULL;
+  f->triedcompile = 0;
   f->cache = NULL;
   f->sizecode = 0;
   f->lineinfo = NULL;

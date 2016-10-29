@@ -1142,8 +1142,9 @@ void luaV_execute (lua_State *L) {
           /* dispatch the JIT */
           Proto* p = getproto(L->ci->func);
           lua_JitFunction f = p->compiledcode;
-          if (!f) {
+          if (!f && !p->triedcompile) {
             f = luaJ_compile(p);
+            p->triedcompile = 1;
             if (f) {
               p->compiledcode = f;
             }
