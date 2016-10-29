@@ -29,8 +29,14 @@ public:
     bool do_loadk(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_settabup(TR::BytecodeBuilder* builder, Instruction instruction);
-    
+
     bool do_add(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_sub(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_mul(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_idiv(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_shl(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_shr(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_unm(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 

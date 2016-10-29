@@ -102,6 +102,24 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_ADD:
          do_add(builder, instruction);
          break;
+      case OP_SUB:
+         do_sub(builder, instruction);
+         break;
+      case OP_MUL:
+         do_mul(builder, instruction);
+         break;
+      case OP_IDIV:
+         do_idiv(builder, instruction);
+         break;
+      case OP_SHL:
+         do_shl(builder, instruction);
+         break;
+      case OP_SHR:
+         do_shr(builder, instruction);
+         break;
+      case OP_UNM:
+         do_unm(builder, instruction);
+         break;
       case OP_RETURN:
          do_return(builder, instruction);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
@@ -197,6 +215,209 @@ bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction inst
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
 }
+
+bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Sub(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}
+
+bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Mul(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}
+
+/*bool Lua::FunctionBuilder::do_mod(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Sub(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}*/
+
+/*bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Sub(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}*/
+
+bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Div(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}
+
+/*bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              And(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}*/
+
+/*bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Sub(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}*/
+
+/*bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Xor(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}*/
+
+bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              ShiftL(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}
+
+bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              ShiftR(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}
+
+bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Sub(
+   builder->                  ConstInt64(0),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}
+
+/*bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+
+   builder->StoreIndirect("TValue", "value_",
+   builder->              Load("ra"),
+   builder->              Sub(
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rb")),
+   builder->                  LoadIndirect("TValue", "value_",
+   builder->                               Load("rc"))));
+
+   builder->StoreIndirect("TValue", "tt_",
+   builder->             Load("ra"),
+   builder->             ConstInt32(LUA_TNUMINT));
+}*/
 
 bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction instruction) {
    auto arg_b = GETARG_B(instruction);
