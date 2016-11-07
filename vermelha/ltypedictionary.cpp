@@ -34,33 +34,33 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.StkId = PointerTo("TValue"); // stack index
 
    // struct LClosure
-   luaTypes.LClosure = DefineStruct("LClosure");              // ClosureHeader
-   DefineField("LClosure", "next", pGCObject_t);              //      | CommonHeader
-   DefineField("LClosure", "tt", luaTypes.lu_byte);           //      |      |
-   DefineField("LClosure", "marked", luaTypes.lu_byte);       //      |      |
-   DefineField("LClosure", "nupvalues", luaTypes.lu_byte);    //      |
-   DefineField("LClosure", "gclist", pGCObject_t);            //      |
-   DefineField("LClosure", "p", pProto_t);
-   DefineField("LClosure", "upvals", pAddress);
+   luaTypes.LClosure = DefineStruct("LClosure");
+   DefineField("LClosure", "next", pGCObject_t, offsetof(LClosure, next));                // ClosureHeader  CommonHeader
+   DefineField("LClosure", "tt", luaTypes.lu_byte, offsetof(LClosure, tt));               //      |              |
+   DefineField("LClosure", "marked", luaTypes.lu_byte, offsetof(LClosure, marked));       //      |              |
+   DefineField("LClosure", "nupvalues", luaTypes.lu_byte, offsetof(LClosure, nupvalues)); //      |
+   DefineField("LClosure", "gclist", pGCObject_t, offsetof(LClosure, gclist));            //      |
+   DefineField("LClosure", "p", pProto_t, offsetof(LClosure, p));
+   DefineField("LClosure", "upvals", Address, offsetof(LClosure, upvals));
    CloseStruct("LClosure");
 
    // lfunc.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    luaTypes.UpVal = DefineStruct("UpVal");
-   DefineField("UpVal", "v", PointerTo(luaTypes.TValue));  // points to stack or to its own value
-   DefineField("UpVal", "refcount", Int64);                // reference counter
+   DefineField("UpVal", "v", PointerTo(luaTypes.TValue), offsetof(UpVal, v));  // points to stack or to its own value
+   DefineField("UpVal", "refcount", Int64, offsetof(UpVal, refcount));         // reference counter
 /*
    union {
-      struct {                                             // (when open)
-         UpVal* next;                                      // linked list
-         int touched;                                      // mark to avoid cycles with dead threads
+      struct {                                                                 // (when open)
+         UpVal* next;                                                          // linked list
+         int touched;                                                          // mark to avoid cycles with dead threads
       } open;
 */
-   DefineField("UpVal", "u_value", luaTypes.TValue); /* TValue value; */ // the value (when closed)
+   DefineField("UpVal", "u_value", luaTypes.TValue, offsetof(UpVal, u.value)); /* TValue value; */ // the value (when closed)
 /*
    } u;
 */
-   CloseStruct("UpVal");
+   CloseStruct("UpVal", sizeof(UpVal));
 
    // lstate.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

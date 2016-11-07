@@ -55,11 +55,7 @@ public:
     
     void jit_gettableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v);
     
-    void jit_fastget(TR::BytecodeBuilder* builder);
-    
     void jit_settableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v);
-    
-    void jit_fastset(TR::BytecodeBuilder* builder);
 
 private:
     Proto* prototype;

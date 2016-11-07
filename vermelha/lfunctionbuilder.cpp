@@ -6,6 +6,41 @@ static void printAddr(unsigned char* addr) {
    printf("Compiled! (%p)\n", addr);
 }
 
+int jit_fastget(lua_State* L, TValue* t, TValue* k, const TValue* slot) {
+   return luaV_fastget(L, t, k, slot, luaH_get);
+}
+
+int jit_fastset(lua_State* L, TValue* t, TValue* k, const TValue** _slot, TValue* v) {
+   const TValue* slot = nullptr;
+   //auto returnValue = luaV_fastset(L, t, k, slot, luaH_get, v);
+   // macro expansion
+   auto returnValue = ( !((((t))->tt_) == (((5) | (1 << 6))))
+                        ?
+                          (slot = __null, 0)
+                        :
+                          ( slot = luaH_get(((&((((union GCUnion *)((((t)->value_).gc))))->h))), k)
+                          , ((((slot))->tt_) == (0))
+                            ?
+                              0
+                            :
+                              ( ( ( (((v)->tt_) & (1 << 6)) &&
+                                    (((((&((((union GCUnion *)((((t)->value_).gc))))->h))))->marked) & ((1<<(2)))) &&
+                                    ((((((v)->value_).gc))->marked) & (((1<<(0)) | (1<<(1)))))
+                                  )
+                                  ?
+                                    luaC_barrierback_(L,((&((((union GCUnion *)((((t)->value_).gc))))->h))))
+                                  :
+                                    ((void)((0)))
+                                )
+                                , ((void)L, *(((TValue *)(slot)))=*(v), ((void)0))
+                                , 1
+                              )
+                          )
+                      );
+   //*_slot = slot;
+   return returnValue;
+}
+
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
 
@@ -41,11 +76,20 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    auto pTValue = types->PointerTo(luaTypes.TValue);
    auto plua_State = types->PointerTo(luaTypes.lua_State);
 
-   /*DefineFunction((char*)"settableProtected", (char*)"lfunction.cpp", (char*)"9",
-                  (void*)settableProtected,
-                  NoType,
-                  4,
-                  luaTypes.lua_State, pTValue, pTValue, pTValue);*/
+   DefineFunction("jit_fastget", "0", "0", (void*)jit_fastget,
+                  Int32, 4,
+                  plua_State,
+                  pTValue,
+                  pTValue,
+                  pTValue);
+
+   DefineFunction("jit_fastset", "0", "0", (void*)jit_fastset,
+                  Int32, 5,
+                  plua_State,
+                  pTValue,
+                  pTValue,
+                  pTValue,
+                  pTValue);
 
    DefineFunction((char*)"luaV_finishget", (char*)"0", (char*)"0", (void*)luaV_finishget, NoType, 5,
                   plua_State, pTValue, pTValue, luaTypes.StkId, pTValue);
@@ -72,13 +116,12 @@ bool Lua::FunctionBuilder::buildIL() {
    Store("base", LoadIndirect("CallInfo", "u_l_base", Load("ci"))); // base = ci->u.l.base
 
    // cl = clLvalue(ci->func)
-   // cl = &(cast<GCUnion*>(ci->func->value_->gc)->cl.l)
+   // cl = &(cast<GCUnion*>(ci->func->value_.gc)->cl.l)
    Store("cl",
-         LoadAt(typeDictionary()->PointerTo(luaTypes.LClosure),
-                ConvertTo(typeDictionary()->PointerTo(luaTypes.LClosure),
-                          LoadIndirect("TValue", "value_", // pretend `value_` is really `value_->gc` because it's a union
-                                        LoadIndirect("CallInfo", "func",
-                                                     Load("ci"))))));
+         ConvertTo(typeDictionary()->PointerTo(luaTypes.LClosure),
+                   LoadIndirect("TValue", "value_", // pretend `value_` is really `value_.gc` because it's a union
+                                LoadIndirect("CallInfo", "func",
+                                             Load("ci")))));
 
    AppendBuilder(bytecodeBuilders[0]);
 
@@ -98,6 +141,9 @@ bool Lua::FunctionBuilder::buildIL() {
       switch (GET_OPCODE(instruction)) {
       case OP_LOADK:
          do_loadk(builder, instruction);
+         break;
+      case OP_SETTABUP:
+         do_settabup(builder, instruction);
          break;
       case OP_ADD:
          do_add(builder, instruction);
@@ -164,15 +210,19 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
    // upval = cl->upvals[GETARG_A(i)]->v
    builder->Store("upval",
    builder->      LoadIndirect("UpVal", "v",
-   builder->                   LoadAt(typeDictionary()->PointerTo(luaTypes.UpVal),
-   builder->                          LoadIndirect("LClosure", "upvals",
-   builder->                                       Load("cl")))));
+   builder->                   IndexAt(typeDictionary()->PointerTo(luaTypes.UpVal),
+   builder->                           Add(
+   builder->                               Load("cl"),
+   builder->                               ConstInt32(typeDictionary()->OffsetOf("LClosure", "upvals"))),
+   builder->                           ConstInt32(GETARG_A(instruction)))));
 
    auto rb = jit_RK(GETARG_B(instruction), builder);
    auto rc = jit_RK(GETARG_C(instruction), builder);
    
-
-   builder->Call("settableProtected", 4, builder->Load("L"), builder->Load("upval"), rb, rc);
+   jit_settableProtected(builder,
+   builder->             Load("upval"),
+                         rb,
+                         rc);
 
    builder->Store("base",
    builder->      LoadIndirect("CallInfo", "u_l_base",
@@ -493,26 +543,27 @@ void Lua::FunctionBuilder::jit_gettableProtected(TR::BytecodeBuilder* builder, T
    
 }
 
-void Lua::FunctionBuilder::jit_fastget(TR::BytecodeBuilder* builder) {
-   
-}
-
 void Lua::FunctionBuilder::jit_settableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v) {
-   #if 0 // a failed attempt
-   // const TValue *slot;
-   builder->Store("slot", builder->NullAddress());
+   //builder->Store("_slot", builder->NullAddress());
+   builder->Store("_slot", ConstInt64(0xabcd));
 
-   TR::IlBuilder* setSlotNull = nullptr;
-   TR::IlBuilder* tryGetSlot = nullptr;
-   builder->IfThenElse(&setSlotNull, &tryGetSlot, /*!ttistable(t)*/);
+   TR::IlBuilder* finishsetPath = nullptr;
+   builder->IfThen(&finishsetPath,
+   builder->       EqualTo(
+   builder->               Call("jit_fastset", 5,
+   builder->                    Load("L"),
+                                t,
+                                k,
+   builder->                    Load("_slot"),
+                                v),
+   builder->               ConstInt32(0)));
 
-   // if (ttistable(t)) { // if (t->tt_ == LUA_TTABLE | BIT_ISCOLLECTABLE) {
-   setSlotNull->Store("slot", builder->NullAddress());
-   // } else {
-   tryGetSlot->
-   // }
-   #endif
-}
-
-void Lua::FunctionBuilder::jit_fastset(TR::BytecodeBuilder* builder) {
+   /*finishsetPath->Call("luaV_finishset", 5,
+   finishsetPath->     Load("L"),
+                       t,
+                       k,
+                       v,
+   finishsetPath->     LoadAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   finishsetPath->            Load("_slot")));
+   jit_Protect(finishsetPath);*/
 }
