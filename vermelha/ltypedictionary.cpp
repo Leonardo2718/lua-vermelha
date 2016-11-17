@@ -28,7 +28,6 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.TValue = DEFINE_STRUCT(TValue);
    DEFINE_FIELD(TValue, value_, Int64); // this should actually be a union
    DEFINE_FIELD(TValue, tt_, Int32);
-   //DefineField("TValue", "__padding0__", Int32);
    CLOSE_STRUCT(TValue);
 
    luaTypes.StkId = PointerTo("TValue"); // stack index
@@ -56,7 +55,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
          int touched;                                   // mark to avoid cycles with dead threads
       } open;
 */
-   DefineField("UpVal", "u_value", luaTypes.TValue, offsetof(UpVal, u.value)); /* TValue value; */ // the value (when closed)
+      DEFINE_FIELD(UpVal, u.value, luaTypes.TValue); /* TValue value; */ // the value (when closed)
 /*
    } u;
 */
@@ -75,16 +74,14 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    union { // Node: JitBuilder does not currently support defining unions
        struct {   // only for Lua functions
 */
-           DefineField("CallInfo", "u_l_base", luaTypes.StkId);   /* StkId base; */ // base for this function
-           DefineField("CallInfo", "u_l_savedpc", pInstruction);  /* const Instruction* savedpc; */
+           DEFINE_FIELD(CallInfo, u.l.base, luaTypes.StkId);   /* StkId base; */ // base for this function
+           DEFINE_FIELD(CallInfo, u.l.savedpc, pInstruction);  /* const Instruction* savedpc; */
 /*
        } l;
        struct {   // only for C functions
            lua_KFunction k;         // continuation in case of yields
            ptrdiff_t old_errfunc;
-*/
-           DefineField("CallInfo", "__padding__u_c_ctx", lua_KContext_t); /* lua_KContext ctx;*/ // context info. in case of yields
-/*
+           lua_KContext ctx;        // context info. in case of yields
        } c;
    } u;
 */

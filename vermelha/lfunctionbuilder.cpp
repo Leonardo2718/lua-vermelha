@@ -113,7 +113,7 @@ bool Lua::FunctionBuilder::buildIL() {
    }
 
    Store("ci", LoadIndirect("lua_State", "ci", Load("L")));         // ci = L->ci
-   Store("base", LoadIndirect("CallInfo", "u_l_base", Load("ci"))); // base = ci->u.l.base
+   Store("base", LoadIndirect("CallInfo", "u.l.base", Load("ci"))); // base = ci->u.l.base
 
    // cl = clLvalue(ci->func)
    // cl = &(cast<GCUnion*>(ci->func->value_.gc)->cl.l)
@@ -176,11 +176,11 @@ bool Lua::FunctionBuilder::buildIL() {
 
       if (nextBuilder) {
          // pc++;
-         auto pc = builder->LoadIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"));
+         auto pc = builder->LoadIndirect("CallInfo", "u.l.savedpc", builder->Load("ci"));
          auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
                                        pc,
                       builder->        ConstInt32(1));
-         builder->StoreIndirect("CallInfo", "u_l_savedpc", builder->Load("ci"), newpc);
+         builder->StoreIndirect("CallInfo", "u.l.savedpc", builder->Load("ci"), newpc);
 
          builder->AddFallThroughBuilder(nextBuilder);
       }
@@ -225,7 +225,7 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
                          rc);
 
    builder->Store("base",
-   builder->      LoadIndirect("CallInfo", "u_l_base",
+   builder->      LoadIndirect("CallInfo", "u.l.base",
    builder->                   Load("ci")));
 
    return true;
@@ -535,7 +535,7 @@ TR::IlValue* Lua::FunctionBuilder::jit_RK(int arg, TR::BytecodeBuilder* builder)
 
 void Lua::FunctionBuilder::jit_Protect(TR::BytecodeBuilder* builder) {
    builder->Store("base",
-   builder->      LoadIndirect("CallInfo", "u_l_base",
+   builder->      LoadIndirect("CallInfo", "u.l.base",
    builder->                   Load("ci")));
 }
 
