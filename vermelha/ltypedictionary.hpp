@@ -30,9 +30,9 @@ public:
    };
    
    TypeDictionary();
-   
+
    LuaTypes getLuaTypes() { return luaTypes; }
-   
+
 private:
    LuaTypes luaTypes;
 };
