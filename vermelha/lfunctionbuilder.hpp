@@ -28,6 +28,7 @@ public:
 
     bool do_loadk(TR::BytecodeBuilder* builder, Instruction instruction);
 
+    bool do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_settabup(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_add(TR::BytecodeBuilder* builder, Instruction instruction);
@@ -52,8 +53,6 @@ public:
     TR::IlValue* jit_RK(int arg, TR::BytecodeBuilder* builder); // equivalent to RKB and RKC in `lua/lvm.c`
     
     void jit_Protect(TR::BytecodeBuilder* builder); // updates local copies of values in case of stack reallocation
-    
-    void jit_gettableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v);
 
 private:
     Proto* prototype;

@@ -23,6 +23,13 @@ static void printAddr(unsigned char* addr) {
     Protect(luaV_finishset(L,t,k,v,slot)); }
 
 
+StkId jit_gettableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
+   auto ci = L->ci;
+   StkId base = ci->u.l.base;
+   gettableProtected(L, t, k, v);
+   return base;
+}
+
 StkId jit_settableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    auto ci = L->ci;
    StkId base = ci->u.l.base;
@@ -65,6 +72,13 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
 
    auto pTValue = types->PointerTo(luaTypes.TValue);
    auto plua_State = types->PointerTo(luaTypes.lua_State);
+
+   DefineFunction("jit_gettableProtected", "0", "0", (void*)jit_gettableProtected,
+                  luaTypes.StkId, 4,
+                  plua_State,
+                  pTValue,
+                  pTValue,
+                  pTValue);
 
    DefineFunction("jit_settableProtected", "0", "0", (void*)jit_settableProtected,
                   luaTypes.StkId, 4,
@@ -114,6 +128,9 @@ bool Lua::FunctionBuilder::buildIL() {
       switch (GET_OPCODE(instruction)) {
       case OP_LOADK:
          do_loadk(builder, instruction);
+         break;
+      case OP_GETTABUP:
+         do_gettabup(builder, instruction);
          break;
       case OP_SETTABUP:
          do_settabup(builder, instruction);
@@ -175,6 +192,31 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    auto rb_tt = builder->LoadIndirect("TValue", "tt_", builder->Load("rb"));
    builder->StoreIndirect("TValue", "value_", builder->Load("ra"), rb_value);
    builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction) {
+   // upval = cl->upvals[GETARG_B(instruction)]->v
+   auto pUpVal = typeDictionary()->PointerTo(luaTypes.UpVal);
+   auto ppUpVal = typeDictionary()->PointerTo(pUpVal);
+   builder->Store("upval",
+   builder->      LoadIndirect("UpVal", "v",
+   builder->                   LoadAt(pUpVal,
+   builder->                          IndexAt(ppUpVal,
+   builder->                                  Add(
+   builder->                                      Load("cl"),
+   builder->                                      ConstInt32(typeDictionary()->OffsetOf("LClosure", "upvals"))),
+   builder->                                  ConstInt32(GETARG_B(instruction))))));
+
+   auto rc = jit_RK(GETARG_C(instruction), builder);
+
+   builder->Store("base",
+   builder->      Call("jit_gettableProtected", 4,
+   builder->           Load("L"),
+   builder->           Load("upval"),
+                       rc,
+   builder->           Load("ra")));
 
    return true;
 }
@@ -511,8 +553,4 @@ void Lua::FunctionBuilder::jit_Protect(TR::BytecodeBuilder* builder) {
    builder->Store("base",
    builder->      LoadIndirect("CallInfo", "u.l.base",
    builder->                   Load("ci")));
-}
-
-void Lua::FunctionBuilder::jit_gettableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v) {
-   
 }
