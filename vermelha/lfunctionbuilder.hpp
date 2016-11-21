@@ -54,8 +54,6 @@ public:
     void jit_Protect(TR::BytecodeBuilder* builder); // updates local copies of values in case of stack reallocation
     
     void jit_gettableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v);
-    
-    void jit_settableProtected(TR::BytecodeBuilder* builder, TR::IlValue* t, TR::IlValue* k, TR::IlValue* v);
 
 private:
     Proto* prototype;
