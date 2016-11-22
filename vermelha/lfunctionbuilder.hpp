@@ -59,7 +59,7 @@ public:
 
     TR::IlValue* jit_R(TR::BytecodeBuilder* builder, int arg);
 
-    TR::IlValue* jit_RK(int arg, TR::BytecodeBuilder* builder); // equivalent to RKB and RKC in `lua/lvm.c`
+    TR::IlValue* jit_RK(TR::BytecodeBuilder* builder, int arg); // equivalent to RKB and RKC in `lua/lvm.c`
     
     void jit_Protect(TR::BytecodeBuilder* builder); // updates local copies of values in case of stack reallocation
 

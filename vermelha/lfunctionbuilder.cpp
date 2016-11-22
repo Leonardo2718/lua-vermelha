@@ -310,10 +310,13 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    builder->           ConstInt32(arg_b)));
 
    // *ra = *rb;
-   auto rb_value = builder->LoadIndirect("TValue", "value_", builder->Load("rb"));
+   /*auto rb_value = builder->LoadIndirect("TValue", "value_", builder->Load("rb"));
    auto rb_tt = builder->LoadIndirect("TValue", "tt_", builder->Load("rb"));
    builder->StoreIndirect("TValue", "value_", builder->Load("ra"), rb_value);
-   builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);
+   builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);*/
+   jit_setobj(builder,
+              builder->Load("ra"),
+              builder->Load("rb"));
 
    return true;
 }
@@ -331,7 +334,7 @@ bool Lua::FunctionBuilder::do_gettabup(TR::BytecodeBuilder* builder, Instruction
    builder->                                      ConstInt32(typeDictionary()->OffsetOf("LClosure", "upvals"))),
    builder->                                  ConstInt32(GETARG_B(instruction))))));
 
-   auto rc = jit_RK(GETARG_C(instruction), builder);
+   auto rc = jit_RK(builder, GETARG_C(instruction));
 
    builder->Store("base",
    builder->      Call("jit_gettableProtected", 4,
@@ -356,8 +359,8 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
    builder->                                      ConstInt32(typeDictionary()->OffsetOf("LClosure", "upvals"))),
    builder->                                  ConstInt32(GETARG_A(instruction))))));
 
-   auto rb = jit_RK(GETARG_B(instruction), builder);
-   auto rc = jit_RK(GETARG_C(instruction), builder);
+   auto rb = jit_RK(builder, GETARG_B(instruction));
+   auto rc = jit_RK(builder, GETARG_C(instruction));
    
    builder->Store("base",
    builder->      Call("jit_settableProtected", 4,
@@ -370,8 +373,8 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
 }
 
 bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    /*
    TR::IlBuilder* integers = nullptr;
@@ -407,8 +410,8 @@ bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -426,8 +429,8 @@ bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -463,8 +466,8 @@ bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -482,8 +485,8 @@ bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -501,8 +504,8 @@ bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -520,8 +523,8 @@ bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -539,8 +542,8 @@ bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -558,8 +561,8 @@ bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -577,8 +580,8 @@ bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -596,10 +599,7 @@ bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction inst
 
 bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction instruction) {
    // rb = RB(i);
-   builder->Store("rb", 
-   builder->      IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-   builder->              Load("base"),
-   builder->              ConstInt32(GETARG_B(instruction))));
+   builder->Store("rb", jit_R(builder, GETARG_B(instruction)));
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
@@ -660,12 +660,12 @@ bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction i
    return true;
 }
 
-void Lua::FunctionBuilder::jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* obj1, TR::IlValue* obj2) {
-   // *obj1 = *obj2;
-   auto rb_value = builder->LoadIndirect("TValue", "value_", obj2);
-   auto rb_tt = builder->LoadIndirect("TValue", "tt_", obj2);
-   builder->StoreIndirect("TValue", "value_", obj1, rb_value);
-   builder->StoreIndirect("TValue", "tt_", obj1, rb_tt);
+void Lua::FunctionBuilder::jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* dest, TR::IlValue* src) {
+   // *dest = *src;
+   auto src_value = builder->LoadIndirect("TValue", "value_", src);
+   auto src_tt = builder->LoadIndirect("TValue", "tt_", src);
+   builder->StoreIndirect("TValue", "value_", dest, src_value);
+   builder->StoreIndirect("TValue", "tt_", dest, src_tt);
 }
 
 TR::IlValue* Lua::FunctionBuilder::jit_R(TR::BytecodeBuilder* builder, int arg) {
@@ -675,7 +675,7 @@ TR::IlValue* Lua::FunctionBuilder::jit_R(TR::BytecodeBuilder* builder, int arg) 
    return reg;
 }
 
-TR::IlValue* Lua::FunctionBuilder::jit_RK(int arg, TR::BytecodeBuilder* builder) {
+TR::IlValue* Lua::FunctionBuilder::jit_RK(TR::BytecodeBuilder* builder, int arg) {
    return ISK(arg) ?
                      builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
                      builder->        ConstAddress((void*)(prototype->k)),
