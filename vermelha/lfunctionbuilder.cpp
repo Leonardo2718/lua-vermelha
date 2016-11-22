@@ -218,6 +218,9 @@ bool Lua::FunctionBuilder::buildIL() {
       builder->              ConstInt32(arg_a)));
 
       switch (GET_OPCODE(instruction)) {
+      case OP_MOVE:
+         do_move(builder, instruction);
+         break;
       case OP_LOADK:
          do_loadk(builder, instruction);
          break;
@@ -285,6 +288,15 @@ bool Lua::FunctionBuilder::buildIL() {
          builder->AddFallThroughBuilder(nextBuilder);
       }
    }
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_move(TR::BytecodeBuilder* builder, Instruction instruction) {
+   // setobjs2s(L, ra, RB(i));
+   jit_setobj(builder,
+   builder->  Load("ra"),
+              jit_R(builder, GETARG_B(instruction)));
 
    return true;
 }
@@ -654,6 +666,13 @@ void Lua::FunctionBuilder::jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue*
    auto rb_tt = builder->LoadIndirect("TValue", "tt_", obj2);
    builder->StoreIndirect("TValue", "value_", obj1, rb_value);
    builder->StoreIndirect("TValue", "tt_", obj1, rb_tt);
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_R(TR::BytecodeBuilder* builder, int arg) {
+   auto reg = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+              builder->        Load("base"),
+              builder->        ConstInt32(arg));
+   return reg;
 }
 
 TR::IlValue* Lua::FunctionBuilder::jit_RK(int arg, TR::BytecodeBuilder* builder) {

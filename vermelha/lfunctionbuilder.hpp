@@ -26,6 +26,7 @@ public:
     return true if successful, false otherwise.
     */
 
+    bool do_move(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_loadk(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction);
@@ -55,7 +56,9 @@ public:
     */
     
     void jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* obj1, TR::IlValue* obj2);
-    
+
+    TR::IlValue* jit_R(TR::BytecodeBuilder* builder, int arg);
+
     TR::IlValue* jit_RK(int arg, TR::BytecodeBuilder* builder); // equivalent to RKB and RKC in `lua/lvm.c`
     
     void jit_Protect(TR::BytecodeBuilder* builder); // updates local copies of values in case of stack reallocation
