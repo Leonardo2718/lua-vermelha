@@ -1,5 +1,8 @@
 // vermelha headers
 #include "lfunctionbuilder.hpp"
+
+// c libraries
+#include <cmath>
 #include <stdio.h>
 
 static void printAddr(unsigned char* addr) {
@@ -7,6 +10,37 @@ static void printAddr(unsigned char* addr) {
 }
 
 #define Protect(x)	{ {x;}; base = ci->u.l.base; }
+
+/*
+** some macros for common tasks in 'luaV_execute'
+*/
+
+
+#define RA(i)	(base+GETARG_A(i))
+#define RB(i)	check_exp(getBMode(GET_OPCODE(i)) == OpArgR, base+GETARG_B(i))
+#define RC(i)	check_exp(getCMode(GET_OPCODE(i)) == OpArgR, base+GETARG_C(i))
+#define RKB(i)	check_exp(getBMode(GET_OPCODE(i)) == OpArgK, \
+	ISK(GETARG_B(i)) ? k+INDEXK(GETARG_B(i)) : base+GETARG_B(i))
+#define RKC(i)	check_exp(getCMode(GET_OPCODE(i)) == OpArgK, \
+	ISK(GETARG_C(i)) ? k+INDEXK(GETARG_C(i)) : base+GETARG_C(i))
+
+
+/* execute a jump instruction */
+#define dojump(ci,i,e) \
+  { int a = GETARG_A(i); \
+    if (a != 0) luaF_close(L, ci->u.l.base + a - 1); \
+    ci->u.l.savedpc += GETARG_sBx(i) + e; }
+
+/* for test instructions, execute the jump instruction that follows it */
+#define donextjump(ci)	{ i = *ci->u.l.savedpc; dojump(ci, i, 1); }
+
+
+#define Protect(x)	{ {x;}; base = ci->u.l.base; }
+
+#define checkGC(L,c)  \
+	{ luaC_condGC(L, L->top = (c),  /* limit of live values */ \
+                         Protect(L->top = ci->top));  /* restore top */ \
+           luai_threadyield(L); }
 
 /*
 ** copy of 'luaV_gettable', but protecting the call to potential
@@ -34,6 +68,27 @@ StkId jit_settableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    auto ci = L->ci;
    StkId base = ci->u.l.base;
    settableProtected(L, t, k, v);
+   return base;
+}
+
+StkId vm_pow(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   TValue *rb = RKB(i);
+   TValue *rc = RKC(i);
+   lua_Number nb; lua_Number nc;
+   if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+     setfltvalue(ra, luai_numpow(L, nb, nc));
+   }
+   else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_POW)); }
+
+   // epilogue
    return base;
 }
 
@@ -86,6 +141,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   pTValue,
                   pTValue,
                   pTValue);
+
+   DefineFunction("vm_pow", "0", "0", (void*)vm_pow,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
 }
 
 bool Lua::FunctionBuilder::buildIL() {
@@ -143,6 +203,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_MUL:
          do_mul(builder, instruction);
+         break;
+      case OP_POW:
+         do_pow(builder, instruction);
          break;
       case OP_BAND:
          do_band(builder, instruction);
@@ -345,22 +408,12 @@ bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction inst
    builder->             ConstInt32(LUA_TNUMINT));
 }*/
 
-/*bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Sub(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));
-}*/
+bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_pow", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+}
 
 bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
