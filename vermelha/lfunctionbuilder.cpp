@@ -71,6 +71,33 @@ StkId jit_settableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    return base;
 }
 
+StkId vm_mod(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   TValue *rb = RKB(i);
+   TValue *rc = RKC(i);
+   lua_Number nb; lua_Number nc;
+   if (ttisinteger(rb) && ttisinteger(rc)) {
+     lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
+     setivalue(ra, luaV_mod(L, ib, ic));
+   }
+   else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+     lua_Number m;
+     luai_nummod(L, nb, nc, m);
+     setfltvalue(ra, m);
+   }
+   else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_MOD)); }
+
+   // epilogue
+   return base;
+}
+
 StkId vm_pow(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -142,6 +169,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   pTValue,
                   pTValue);
 
+   DefineFunction("vm_mod", "0", "0", (void*)vm_mod,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
    DefineFunction("vm_pow", "0", "0", (void*)vm_pow,
                   luaTypes.StkId, 2,
                   plua_State,
@@ -203,6 +235,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_MUL:
          do_mul(builder, instruction);
+         break;
+      case OP_MOD:
+         do_mod(builder, instruction);
          break;
       case OP_POW:
          do_pow(builder, instruction);
@@ -391,22 +426,12 @@ bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction inst
    builder->             ConstInt32(LUA_TNUMINT));
 }
 
-/*bool Lua::FunctionBuilder::do_mod(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Sub(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));
-}*/
+bool Lua::FunctionBuilder::do_mod(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_mod", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+}
 
 bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("base",
