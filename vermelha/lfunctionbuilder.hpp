@@ -38,6 +38,7 @@ public:
     bool do_mul(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_mod(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_pow(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_div(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_idiv(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_band(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_bor(TR::BytecodeBuilder* builder, Instruction instruction);

@@ -119,6 +119,27 @@ StkId vm_pow(lua_State* L, Instruction i) {
    return base;
 }
 
+StkId vm_div(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   TValue *rb = RKB(i);
+   TValue *rc = RKC(i);
+   lua_Number nb; lua_Number nc;
+   if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+     setfltvalue(ra, luai_numdiv(L, nb, nc));
+   }
+   else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_DIV)); }
+
+   // epilogue
+   return base;
+}
+
 
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
@@ -175,6 +196,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.Instruction);
 
    DefineFunction("vm_pow", "0", "0", (void*)vm_pow,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
+   DefineFunction("vm_div", "0", "0", (void*)vm_div,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
@@ -247,6 +273,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_POW:
          do_pow(builder, instruction);
+         break;
+      case OP_DIV:
+         do_div(builder, instruction);
          break;
       case OP_BAND:
          do_band(builder, instruction);
@@ -479,6 +508,15 @@ bool Lua::FunctionBuilder::do_mod(TR::BytecodeBuilder* builder, Instruction inst
 bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("base",
    builder->      Call("vm_pow", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_div", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
 
