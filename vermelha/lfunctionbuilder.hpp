@@ -47,6 +47,7 @@ public:
     bool do_shr(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_unm(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_bnot(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_not(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
