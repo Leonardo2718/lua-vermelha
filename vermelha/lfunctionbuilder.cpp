@@ -390,6 +390,8 @@ bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -407,6 +409,8 @@ bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -424,6 +428,8 @@ bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_mod(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -431,6 +437,8 @@ bool Lua::FunctionBuilder::do_mod(TR::BytecodeBuilder* builder, Instruction inst
    builder->      Call("vm_mod", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -438,6 +446,8 @@ bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction inst
    builder->      Call("vm_pow", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -455,6 +465,8 @@ bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction ins
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -472,6 +484,8 @@ bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction ins
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -489,6 +503,8 @@ bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -506,6 +522,8 @@ bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction ins
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -523,6 +541,8 @@ bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -540,6 +560,8 @@ bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -556,6 +578,8 @@ bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction inst
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction instruction) {
@@ -575,6 +599,8 @@ bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction ins
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
+
+   return true;
 }
 
 bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction instruction) {
