@@ -224,6 +224,9 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_LOADK:
          do_loadk(builder, instruction);
          break;
+      case OP_LOADNIL:
+         do_loadnil(builder, instruction);
+         break;
       case OP_GETTABUP:
          do_gettabup(builder, instruction);
          break;
@@ -317,6 +320,23 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    jit_setobj(builder,
               builder->Load("ra"),
               builder->Load("rb"));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_loadnil(TR::BytecodeBuilder* builder, Instruction instruction) {
+   auto setnils = OrphanBuilder();
+   builder->ForLoopDown("b", &setnils,
+   builder->            ConstInt32(GETARG_B(instruction) +1),
+   builder->            ConstInt32(0),
+   builder->            ConstInt32(1));
+
+   setnils->StoreIndirect("TValue", "tt_",
+   setnils->              Load("ra"),
+   setnils->              ConstInt32(LUA_TNIL));
+   setnils->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   setnils->        Load("ra"),
+   setnils->        ConstInt32(1));
 
    return true;
 }

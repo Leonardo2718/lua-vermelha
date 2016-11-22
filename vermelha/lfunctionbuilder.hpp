@@ -28,6 +28,7 @@ public:
 
     bool do_move(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_loadk(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_loadnil(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_settabup(TR::BytecodeBuilder* builder, Instruction instruction);
