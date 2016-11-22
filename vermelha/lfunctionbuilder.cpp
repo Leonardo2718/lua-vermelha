@@ -165,6 +165,9 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_UNM:
          do_unm(builder, instruction);
          break;
+      case OP_BNOT:
+         do_bnot(builder, instruction);
+         break;
       case OP_RETURN:
          do_return(builder, instruction);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
@@ -477,22 +480,24 @@ bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction inst
    builder->             ConstInt32(LUA_TNUMINT));
 }
 
-/*bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("rb", jit_RK(GETARG_B(instruction), builder));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(GETARG_C(instruction), builder));   // rc = RKC(i);
+bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction instruction) {
+   // rb = RB(i);
+   builder->Store("rb", 
+   builder->      IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   builder->              Load("base"),
+   builder->              ConstInt32(GETARG_B(instruction))));
 
    builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
-   builder->              Sub(
+   builder->              Xor(
    builder->                  LoadIndirect("TValue", "value_",
    builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
+   builder->                  ConstInt64(-1)));
 
    builder->StoreIndirect("TValue", "tt_",
    builder->             Load("ra"),
    builder->             ConstInt32(LUA_TNUMINT));
-}*/
+}
 
 bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction instruction) {
    auto arg_b = GETARG_B(instruction);
