@@ -71,6 +71,61 @@ StkId jit_settableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    return base;
 }
 
+StkId vm_gettable(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   StkId rb = RB(i);
+   TValue *rc = RKC(i);
+   gettableProtected(L, rb, rc, ra);
+
+   // epilogue
+   return base;
+}
+
+StkId vm_settable(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   TValue *rb = RKB(i);
+   TValue *rc = RKC(i);
+   settableProtected(L, ra, rb, rc);
+
+   // epilogue
+   return base;
+}
+
+StkId vm_newtable(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   int b = GETARG_B(i);
+   int c = GETARG_C(i);
+   Table *t = luaH_new(L);
+   sethvalue(L, ra, t);
+   if (b != 0 || c != 0)
+     luaH_resize(L, t, luaO_fb2int(b), luaO_fb2int(c));
+   checkGC(L, ra + 1);
+
+   // epilogue
+   return base;
+}
+
 StkId vm_add(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -460,6 +515,21 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   pTValue,
                   pTValue);
 
+   DefineFunction("vm_gettable", "0", "0", (void*)vm_gettable,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
+   DefineFunction("vm_settable", "0", "0", (void*)vm_settable,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
+   DefineFunction("vm_newtable", "0", "0", (void*)vm_newtable,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
    DefineFunction("vm_add", "0", "0", (void*)vm_add,
                   luaTypes.StkId, 2,
                   plua_State,
@@ -586,8 +656,17 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_GETTABUP:
          do_gettabup(builder, instruction);
          break;
+      case OP_GETTABLE:
+         do_gettable(builder, instruction);
+         break;
       case OP_SETTABUP:
          do_settabup(builder, instruction);
+         break;
+      case OP_SETTABLE:
+         do_settable(builder, instruction);
+         break;
+      case OP_NEWTABLE:
+         do_newtable(builder, instruction);
          break;
       case OP_ADD:
          do_add(builder, instruction);
@@ -728,6 +807,15 @@ bool Lua::FunctionBuilder::do_gettabup(TR::BytecodeBuilder* builder, Instruction
    return true;
 }
 
+bool Lua::FunctionBuilder::do_gettable(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_gettable", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
 bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction instruction) {
    // upval = cl->upvals[GETARG_A(instruction)]->v
    auto pUpVal = typeDictionary()->PointerTo(luaTypes.UpVal);
@@ -750,6 +838,24 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
    builder->           Load("upval"),
                        rb,
                        rc));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_settable(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_settable", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_newtable(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_newtable", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
 
    return true;
 }

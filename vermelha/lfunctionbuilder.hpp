@@ -31,7 +31,11 @@ public:
     bool do_loadnil(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_gettable(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_settabup(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_settable(TR::BytecodeBuilder* builder, Instruction instruction);
+
+    bool do_newtable(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_add(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_sub(TR::BytecodeBuilder* builder, Instruction instruction);
