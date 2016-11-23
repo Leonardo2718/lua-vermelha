@@ -465,6 +465,21 @@ StkId vm_not(lua_State* L, Instruction i) {
    return base;
 }
 
+StkId vm_len(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   Protect(luaV_objlen(L, ra, RB(i)));
+
+   // epilogue
+   return base;
+}
+
 
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
@@ -604,6 +619,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
+
+   DefineFunction("vm_len", "0", "0", (void*)vm_len,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
 }
 
 bool Lua::FunctionBuilder::buildIL() {
@@ -712,6 +732,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_NOT:
          do_not(builder, instruction);
+         break;
+      case OP_LEN:
+         do_len(builder, instruction);
          break;
       case OP_RETURN:
          do_return(builder, instruction);
@@ -1159,6 +1182,15 @@ bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction ins
 bool Lua::FunctionBuilder::do_not(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("base",
    builder->      Call("vm_not", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_len(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_len", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
 
