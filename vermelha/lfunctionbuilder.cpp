@@ -480,6 +480,21 @@ StkId vm_len(lua_State* L, Instruction i) {
    return base;
 }
 
+StkId vm_jmp(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   dojump(ci, i, 0);
+
+   // epilogue
+   return base;
+}
+
 
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
@@ -624,6 +639,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
+
+   DefineFunction("vm_jmp", "0", "0", (void*)vm_jmp,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
 }
 
 bool Lua::FunctionBuilder::buildIL() {
@@ -735,6 +755,11 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_LEN:
          do_len(builder, instruction);
+         break;
+      case OP_JMP:
+         do_jmp(builder, instruction);
+         builder->AddFallThroughBuilder(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]);
+         nextBuilder = nullptr;
          break;
       case OP_RETURN:
          do_return(builder, instruction);
@@ -1191,6 +1216,15 @@ bool Lua::FunctionBuilder::do_not(TR::BytecodeBuilder* builder, Instruction inst
 bool Lua::FunctionBuilder::do_len(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("base",
    builder->      Call("vm_len", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_jmp(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_jmp", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
 
