@@ -9,6 +9,40 @@ static void printAddr(unsigned char* addr) {
    printf("Compiled! (%p)\n", addr);
 }
 
+/*
+** Try to convert a 'for' limit to an integer, preserving the
+** semantics of the loop.
+** (The following explanation assumes a non-negative step; it is valid
+** for negative steps mutatis mutandis.)
+** If the limit can be converted to an integer, rounding down, that is
+** it.
+** Otherwise, check whether the limit can be converted to a number.  If
+** the number is too large, it is OK to set the limit as LUA_MAXINTEGER,
+** which means no limit.  If the number is too negative, the loop
+** should not run, because any initial integer value is larger than the
+** limit. So, it sets the limit to LUA_MININTEGER. 'stopnow' corrects
+** the extreme case when the initial value is LUA_MININTEGER, in which
+** case the LUA_MININTEGER limit would still run the loop once.
+*/
+static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
+                     int *stopnow) {
+  *stopnow = 0;  /* usually, let loops run */
+  if (!luaV_tointeger(obj, p, (step < 0 ? 2 : 1))) {  /* not fit in integer? */
+    lua_Number n;  /* try to convert to float */
+    if (!tonumber(obj, &n)) /* cannot convert to float? */
+      return 0;  /* not a number */
+    if (luai_numlt(0, n)) {  /* if true, float is larger than max integer */
+      *p = LUA_MAXINTEGER;
+      if (step < 0) *stopnow = 1;
+    }
+    else {  /* float is smaller than min integer */
+      *p = LUA_MININTEGER;
+      if (step >= 0) *stopnow = 1;
+    }
+  }
+  return 1;
+}
+
 #define Protect(x)	{ {x;}; base = ci->u.l.base; }
 
 /*
@@ -499,6 +533,82 @@ StkId vm_jmp(lua_State* L, Instruction i) {
    return base;
 }
 
+int32_t vm_forloop(lua_State* L, Instruction i) {
+   // prologue
+   int32_t continueLoop = 0;
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   if (ttisinteger(ra)) {  /* integer loop? */
+      lua_Integer step = ivalue(ra + 2);
+      lua_Integer idx = intop(+, ivalue(ra), step); /* increment index */
+      lua_Integer limit = ivalue(ra + 1);
+      if ((0 < step) ? (idx <= limit) : (limit <= idx)) {
+        ci->u.l.savedpc += GETARG_sBx(i);  /* jump back */
+        continueLoop = 1;
+        chgivalue(ra, idx);  /* update internal index... */
+        setivalue(ra + 3, idx);  /* ...and external index */
+      }
+   }
+   else {  /* floating loop */
+      lua_Number step = fltvalue(ra + 2);
+      lua_Number idx = luai_numadd(L, fltvalue(ra), step); /* inc. index */
+      lua_Number limit = fltvalue(ra + 1);
+      if (luai_numlt(0, step) ? luai_numle(idx, limit)
+                              : luai_numle(limit, idx)) {
+        ci->u.l.savedpc += GETARG_sBx(i);  /* jump back */
+        continueLoop = 1;
+        chgfltvalue(ra, idx);  /* update internal index... */
+        setfltvalue(ra + 3, idx);  /* ...and external index */
+      }
+   }
+
+   // epilogue
+   return continueLoop;
+}
+
+void vm_forprep(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   TValue *init = ra;
+   TValue *plimit = ra + 1;
+   TValue *pstep = ra + 2;
+   lua_Integer ilimit;
+   int stopnow;
+   if (ttisinteger(init) && ttisinteger(pstep) &&
+       forlimit(plimit, &ilimit, ivalue(pstep), &stopnow)) {
+     /* all values are integer */
+     lua_Integer initv = (stopnow ? 0 : ivalue(init));
+     setivalue(plimit, ilimit);
+     setivalue(init, intop(-, initv, ivalue(pstep)));
+   }
+   else {  /* try making all values floats */
+     lua_Number ninit; lua_Number nlimit; lua_Number nstep;
+     if (!tonumber(plimit, &nlimit))
+       luaG_runerror(L, "'for' limit must be a number");
+     setfltvalue(plimit, nlimit);
+     if (!tonumber(pstep, &nstep))
+       luaG_runerror(L, "'for' step must be a number");
+     setfltvalue(pstep, nstep);
+     if (!tonumber(init, &ninit))
+       luaG_runerror(L, "'for' initial value must be a number");
+     setfltvalue(init, luai_numsub(L, ninit, nstep));
+   }
+   ci->u.l.savedpc += GETARG_sBx(i);
+
+   // epilogue
+}
+
 
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
@@ -676,6 +786,16 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
+
+   DefineFunction("vm_forloop", "0", "0", (void*)vm_forloop,
+                  Int32, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
+   DefineFunction("vm_forprep", "0", "0", (void*)vm_forprep,
+                  NoType, 2,
+                  plua_State,
+                  luaTypes.Instruction);
 }
 
 bool Lua::FunctionBuilder::buildIL() {
@@ -807,6 +927,14 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_RETURN:
          do_return(builder, instruction);
+         nextBuilder = nullptr;   // prevent addition of a fallthrough path
+         break;
+      case OP_FORLOOP:
+         do_forloop(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]), instruction);
+         break;
+      case OP_FORPREP:
+         do_forprep(builder, instruction);
+         builder->AddFallThroughBuilder(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
          break;
       default:
@@ -1352,6 +1480,26 @@ bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction i
 
    builder->Return();
    
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction) {
+   builder->Store("continueLoop",
+   builder->      Call("vm_forloop", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   builder->IfCmpNotEqualZero(&loopStart,
+   builder->              Load("continueLoop"));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Call("vm_forprep", 2,
+   builder->     Load("L"),
+   builder->     ConstInt32(instruction));
+
    return true;
 }
 

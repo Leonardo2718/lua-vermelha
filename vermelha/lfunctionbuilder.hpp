@@ -60,6 +60,9 @@ public:
 
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
+    bool do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction);
+    bool do_forprep(TR::BytecodeBuilder* builder, Instruction instruction);
+
     // convenience functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     /*
