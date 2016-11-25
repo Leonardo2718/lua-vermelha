@@ -57,6 +57,10 @@ static void printAddr(unsigned char* addr) {
     Protect(luaV_finishset(L,t,k,v,slot)); }
 
 
+void jit_setbvalue(TValue* obj, int x) {
+   setbvalue(obj,x);
+}
+
 StkId jit_gettableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    auto ci = L->ci;
    StkId base = ci->u.l.base;
@@ -519,6 +523,9 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    DefineReturnType(NoType);
    setUseBytecodeBuilders();
 
+   auto pTValue = types->PointerTo(luaTypes.TValue);
+   auto plua_State = types->PointerTo(luaTypes.lua_State);
+
    DefineFunction((char*)"luaD_poscall", (char*)"ldo.c", (char*)"453",
                   (void*)luaD_poscall, Int32,
                   4,
@@ -528,8 +535,10 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   Int32);
    DefineFunction((char*)"printAddr", (char*)"0", (char*)"0", (void*)printAddr, NoType, 1, Address);
 
-   auto pTValue = types->PointerTo(luaTypes.TValue);
-   auto plua_State = types->PointerTo(luaTypes.lua_State);
+   DefineFunction("jit_setbvalue", "0", "0", (void*)jit_setbvalue,
+                  NoType, 2,
+                  pTValue,
+                  types->toIlType<int>());
 
    DefineFunction("jit_gettableProtected", "0", "0", (void*)jit_gettableProtected,
                   luaTypes.StkId, 4,
@@ -690,6 +699,9 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_LOADK:
          do_loadk(builder, instruction);
          break;
+      case OP_LOADBOOL:
+         do_loadbool(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         break;
       case OP_LOADNIL:
          do_loadnil(builder, instruction);
          break;
@@ -809,6 +821,19 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    jit_setobj(builder,
               builder->Load("ra"),
               builder->Load("rb"));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_loadbool(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction) {
+   // setbvalue(ra, GETARG_B(i));
+   builder->Call("jit_setbvalue", 2,
+   builder->     Load("ra"),
+   builder->     ConstInt32(GETARG_B(instruction)));
+
+   // if (GETARG_C(i)) ci->u.l.savedpc++;
+   builder->IfCmpNotEqualZero(&dest,
+   builder->               ConstInt32(GETARG_C(instruction)));
 
    return true;
 }
