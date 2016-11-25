@@ -533,6 +533,29 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   types->PointerTo(luaTypes.CallInfo),
                   luaTypes.StkId,
                   Int32);
+
+   DefineFunction("luaV_equalobj", "lvm.c", "409",
+                  (void*)luaV_equalobj, types->toIlType<int>(),
+                  3,
+                  plua_State,
+                  pTValue,
+                  pTValue);
+
+   DefineFunction("luaV_lessthan", "lvm.c", "366",
+                  (void*)luaV_lessthan, types->toIlType<int>(),
+                  3,
+                  plua_State,
+                  pTValue,
+                  pTValue);
+
+   DefineFunction("luaV_lessequal", "lvm.c", "386",
+                  (void*)luaV_lessequal, types->toIlType<int>(),
+                  3,
+                  plua_State,
+                  pTValue,
+                  pTValue);
+
+
    DefineFunction((char*)"printAddr", (char*)"0", (char*)"0", (void*)printAddr, NoType, 1, Address);
 
    DefineFunction("jit_setbvalue", "0", "0", (void*)jit_setbvalue,
@@ -772,6 +795,15 @@ bool Lua::FunctionBuilder::buildIL() {
          do_jmp(builder, instruction);
          builder->AddFallThroughBuilder(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;
+         break;
+      case OP_EQ:
+         do_cmp("luaV_equalobj", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         break;
+      case OP_LT:
+         do_cmp("luaV_lessthan", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         break;
+      case OP_LE:
+         do_cmp("luaV_lessequal", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
          break;
       case OP_RETURN:
          do_return(builder, instruction);
@@ -1252,6 +1284,28 @@ bool Lua::FunctionBuilder::do_jmp(TR::BytecodeBuilder* builder, Instruction inst
    builder->      Call("vm_jmp", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction) {
+   /* cmp can be "luaV_equalobj", "luaV_lessthan", or "luaV_lessequal" */
+
+   // cmp =  cmpFunc(L, RKB(i), RKC(i));
+   builder->Store("cmp",
+   builder->      Call(cmpFunc, 3,
+   builder->           Load("L"),
+                       jit_RK(builder, GETARG_B(instruction)),
+                       jit_RK(builder, GETARG_C(instruction))));
+
+   jit_Protect(builder); // from code inspection it appears like the comparison call
+                         // is the only thing that needs to be Protected because it
+                         // calls `luaT_callTM`, which can reallocat the stack
+
+   // if (cmp != GETARG_A(i)) ci->u.l.savedpc++;
+   builder->IfCmpNotEqual(&dest,
+   builder->              Load("cmp"),
+   builder->              ConstInt32(GETARG_A(instruction)));
 
    return true;
 }
