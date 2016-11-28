@@ -1,49 +1,68 @@
 CC?= gcc
 CXX?= g++
 
-LUA?= lua
-LUAC?= luac
-VERMELHA?= vermelha
+BUILD_CONFIG?= debug
 
+ifeq ($(BUILD_CONFIG),debug)
+	LUA_BUILD_CONFIG_FLAGS= -g
+	VERMELHA_BUILD_CONFIG_FLAGS= -g
+	JITBUILDER_BUILD_CONFIG_LAGS=
+else ifeq ($(BUILD_CONFIG),opt)
+	LUA_BUILD_CONFIG_FLAGS= -g
+	VERMELHA_BUILD_CONFIG_FLAGS= -O2 -g
+	JITBUILDER_BUILD_CONFIG_FLAGS=
+else ifeq ($(BUILD_CONFIG),prod)
+	LUA_BUILD_CONFIG_FLAGS=
+	VERMELHA_BUILD_CONFIG_FLAGS= -O2
+	JITBUILDER_BUILD_CONFIG_FLAGS=
+endif
+
+LUAV?= luav
+
+LUA_APP?= lua.o
 LUA_LIB?= liblua.a
-VERMELHA_LIB?= lib$(VERMELHA).a
+VERMELHA_LIB?= libvermelha.a
 JITBUILDER_LIB?= libjitbuilder.a
 
 LUA_DIR?= $(PWD)/lua
 VERMELHA_DIR?= $(PWD)/vermelha
 JITBUILDER_DIR?= $(PWD)/omr/jitbuilder
 
-LUA_PATH?= $(LUA_DIR)/$(LUA)
-VERMELHA_PATH?= $(VERMELHA_DIR)/$(VERMELHA_LIB)
-JITBUILDER_PATH?= $(JITBUILDER_DIR)/$(JITBUILDER_LIB)
+LUA_LIBPATH?= $(LUA_DIR)/$(LUA_LIB)
+VERMELHA_LIBPATH?= $(VERMELHA_DIR)/$(VERMELHA_LIB)
+JITBUILDER_LIBPATH?= $(JITBUILDER_DIR)/release/$(JITBUILDER_LIB)
 
 
-.PHONY: all lua luac $(VERMELHA) $(VERMELHA_LIB) $(VERMELHA_PATH)
+# targets
 
-all: $(LUA) $(LUAC) $(VERMELHA)
+.PHONY: all $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(VERMELHA_LIBPATH) $(JITBUILDER_LIBPATH)
 
-$(LUAC): $(LUA)
-$(LUA): $(VERMELHA_LIB)
-#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA)"
-	cd $(LUA_DIR) && $(MAKE) linux CC="$(CXX)" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA) -ljitbuilder -ldl"
-#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
+all: $(LUAV)
 
-#$(LUAC): $(VERMELHA_LIB)
-#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR)" MYLIBS="-l$(VERMELHA)"
-#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYLDFLAGS="-L$(VERMELHA_DIR) -L$(PWD)/omr/jitbuilder/release" MYLIBS="-l$(VERMELHA) -ljitbuilder -ldl"
-#	cd $(LUA_DIR) && $(MAKE) linux CC="g++" MYCFLAGS="-fpermissive -g" MYOBJS="$(VERMELHA_PATH)" MYLDFLAGS="-L/lib -L/usr/lib" MYLIBS="-lstdc++"
 
-$(VERMELHA): $(VERMELHA_PATH)
-$(VERMELHA_LIB): $(VERMELHA_PATH)
-$(VERMELHA_PATH):
-	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX="$(CXX)" CXX_FLAGS_EXTRA="-fpermissive -g"
+$(LUAV): $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(VERMELHA_LIBPATH) $(JITBUILDER_LIBPATH)
+	$(CXX) -o $@ $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(VERMELHA_LIBPATH) $(JITBUILDER_LIBPATH) -ldl -lm -Wl,-E -lreadline
 
-$(JITBUILDER_LIB):
-	cd $(JITBUILDER_DIR) && $(MAKE) CXX="$(CXX)" CXX_FLAGS_EXTRA="-g"
+$(LUA_DIR)/lua.o:
+	cd $(LUA_DIR) && $(MAKE) lua.o SYSCFLAGS="-DLUA_USE_LINUX" MYCFLAGS="$(LUA_BUILD_CONFIG_FLAGS)"
+$(LUA_LIBPATH):
+	cd $(LUA_DIR) && $(MAKE) $(LUA_LIB) SYSCFLAGS="-DLUA_USE_LINUX" MYCFLAGS="$(LUA_BUILD_CONFIG_FLAGS)"
+
+$(VERMELHA_LIBPATH):
+	cd $(VERMELHA_DIR) && $(MAKE) $@ CXX="$(CXX)" CXX_FLAGS_EXTRA="-fpermissive -DLUA_C_LINKAGE $(VERMELHA_BUILD_CONFIG_FLAGS)" BUILD_CONFIG="$(BUILD_CONFIG)"
+
+$(JITBUILDER_LIBPATH):
+	cd $(JITBUILDER_DIR) && $(MAKE) CXX="$(CXX)" CXX_FLAGS_EXTRA="$(JITBUILDER_BUILD_CONFIG_FLAGS)" BUILD_CONFIG="$(BUILD_CONFIG)"
+
+
+# clean rules
 
 clean:
 	cd $(LUA_DIR) && $(MAKE) clean
 	cd $(VERMELHA_DIR) && $(MAKE) clean
+
+cleanlibs:
+	rm -f $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(VERMELHA_LIBPATH) $(JITBUILDER_LIBPATH)
 
 cleanlua:
 	cd $(LUA_DIR) && $(MAKE) clean
@@ -51,9 +70,13 @@ cleanlua:
 cleanvermelha:
 	cd $(VERMELHA_DIR) && $(MAKE) cleanall
 
+cleanjitbuilder:
+	cd $(JITBUILDER_DIR) && $(MAKE) clean
+
 cleanall:
 	cd $(LUA_DIR) && $(MAKE) clean
 	cd $(VERMELHA_DIR) && $(MAKE) cleanall
+	cd $(JITBUILDER_DIR) && $(MAKE) clean
 
 # lua patch 
 
