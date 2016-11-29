@@ -57,6 +57,8 @@ public:
 
     bool do_jmp(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
+    bool do_test(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
+    bool do_testset(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
 
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
