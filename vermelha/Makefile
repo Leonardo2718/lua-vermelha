@@ -36,8 +36,8 @@ IPATH= $(LUA_DIR) $(JITBUILDER_RELEASE_DIR) $(JITBUILDER_SUBARCH_DIR) $(JITBUILD
 # file list
 
 SOURCE_FILES= \
-	ltypedictionary.cpp \
-	lfunctionbuilder.cpp \
+	LuaTypeDictionary.cpp \
+	LuaFunctionBuilder.cpp \
 	lvermelha.cpp
 
 OBJECT_FILES= $(addprefix $(OBJS_DIR)/, $(subst .cpp,.o,$(SOURCE_FILES)))

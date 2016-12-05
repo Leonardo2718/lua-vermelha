@@ -1,5 +1,5 @@
 // vermelha headers
-#include "lfunctionbuilder.hpp"
+#include "LuaFunctionBuilder.hpp"
 
 // c libraries
 #include <cmath>

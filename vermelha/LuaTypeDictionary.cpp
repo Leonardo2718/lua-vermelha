@@ -1,4 +1,4 @@
-#include "ltypedictionary.hpp"
+#include "LuaTypeDictionary.hpp"
 #include "luavm.hpp"
 
 Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {

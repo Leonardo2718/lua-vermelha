@@ -6,7 +6,7 @@
 #include "ilgen/BytecodeBuilder.hpp"
 
 // Lua headers
-#include "ltypedictionary.hpp"
+#include "LuaTypeDictionary.hpp"
 #include "luavm.hpp"
 
 namespace Lua { class FunctionBuilder; }

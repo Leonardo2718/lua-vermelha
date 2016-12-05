@@ -1,7 +1,7 @@
 // vermelha headers
 #include "luavm.hpp"
-#include "ltypedictionary.hpp"
-#include "lfunctionbuilder.hpp"
+#include "LuaTypeDictionary.hpp"
+#include "LuaFunctionBuilder.hpp"
 
 // JitBuilder headers
 #include "Jit.hpp"
