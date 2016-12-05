@@ -1003,13 +1003,6 @@ bool Lua::FunctionBuilder::buildIL() {
       }
 
       if (nextBuilder) {
-         // pc++;
-         auto pc = builder->LoadIndirect("CallInfo", "u.l.savedpc", builder->Load("ci"));
-         auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
-                                       pc,
-                      builder->        ConstInt32(1));
-         builder->StoreIndirect("CallInfo", "u.l.savedpc", builder->Load("ci"), newpc);
-
          builder->AddFallThroughBuilder(nextBuilder);
       }
    }
@@ -1035,10 +1028,6 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    builder->           ConstInt32(arg_b)));
 
    // *ra = *rb;
-   /*auto rb_value = builder->LoadIndirect("TValue", "value_", builder->Load("rb"));
-   auto rb_tt = builder->LoadIndirect("TValue", "tt_", builder->Load("rb"));
-   builder->StoreIndirect("TValue", "value_", builder->Load("ra"), rb_value);
-   builder->StoreIndirect("TValue", "tt_", builder->Load("ra"), rb_tt);*/
    jit_setobj(builder,
               builder->Load("ra"),
               builder->Load("rb"));
@@ -1086,8 +1075,8 @@ bool Lua::FunctionBuilder::do_gettabup(TR::BytecodeBuilder* builder, Instruction
    builder->                          IndexAt(ppUpVal,
    builder->                                  Add(
    builder->                                      Load("cl"),
-   builder->                                      ConstInt32(typeDictionary()->OffsetOf("LClosure", "upvals"))),
-   builder->                                  ConstInt32(GETARG_B(instruction))))));
+   builder->                                      ConstInt64(typeDictionary()->OffsetOf("LClosure", "upvals"))),
+   builder->                                  ConstInt64(GETARG_B(instruction))))));
 
    auto rc = jit_RK(builder, GETARG_C(instruction));
 
@@ -1120,8 +1109,8 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
    builder->                          IndexAt(ppUpVal,
    builder->                                  Add(
    builder->                                      Load("cl"),
-   builder->                                      ConstInt32(typeDictionary()->OffsetOf("LClosure", "upvals"))),
-   builder->                                  ConstInt32(GETARG_A(instruction))))));
+   builder->                                      ConstInt64(typeDictionary()->OffsetOf("LClosure", "upvals"))),
+   builder->                                  ConstInt64(GETARG_A(instruction))))));
 
    auto rb = jit_RK(builder, GETARG_B(instruction));
    auto rc = jit_RK(builder, GETARG_C(instruction));
@@ -1156,27 +1145,9 @@ bool Lua::FunctionBuilder::do_newtable(TR::BytecodeBuilder* builder, Instruction
 
 bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction instruction) {
    /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);*/
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
 
-   /*
-   TR::IlBuilder* integers = nullptr;
-   TR::IlBuilder* notIntegers = nullptr;
-   TR::IlBuilder* numbers = nullptr;
-   TR::IlBuilder* notNumbers = nullptr;
-
-   builder->IfThenElse(integers, notIntegers,
-   builder->           And(
-   builder->               EqualTo(
-   builder->                       LoadIndirect("TValue", "tt_",
-   builder->                                    Load("rb")),
-   builder->                       ConstInt32(LUA_TNUMINT)),
-   builder->               EqualTo(
-   builder->                       LoadIndirect("TValue", "tt_",
-   builder->                                    Load("rc")),
-   builder->                       ConstInt32(LUA_TNUMINT))));
-   */
-
-   /*builder->StoreIndirect("TValue", "value_",
+   builder->StoreIndirect("TValue", "value_",
    builder->              Load("ra"),
    builder->              Add(
    builder->                  LoadIndirect("TValue", "value_",
