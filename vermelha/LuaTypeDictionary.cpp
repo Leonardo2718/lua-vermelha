@@ -18,7 +18,6 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    auto PtrDiff_t = toIlType<ptrdiff_t>();       // is actually `ptrdiff_t`
    auto Sig_Atomic_t = toIlType<sig_atomic_t>(); // is actually `sig_atomic_t`
    auto l_signalT_t = Sig_Atomic_t;
-   auto lua_KContext_t = toIlType<void*>();
    auto pInstruction = PointerTo(luaTypes.Instruction);
    auto pProto_t = toIlType<void*>();
 

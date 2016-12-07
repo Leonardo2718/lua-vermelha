@@ -2,13 +2,13 @@
 #include "LuaFunctionBuilder.hpp"
 
 // c libraries
-#include <cmath>
+#include <math.h>
 #include <stdio.h>
 
 
 //~ convenience functions to be called from JITed code ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-static void printAddr(unsigned char* addr) {
+static void printAddr(void* addr) {
    printf("Compiled! (%p)\n", addr);
 }
 
@@ -674,10 +674,10 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    snprintf(line_num_buff, 1024, "%d", prototype->linedefined);
 
    // since Lua functions do not have actual names, use the format
-   // `<filename>_<first line of definition>_<last line of definition>`
+   // `<filename>:<first line of definition>_<last line of definition>`
    // as the "unique" function name
    char func_name_buff[1024];
-   snprintf(func_name_buff, 1024, "%s_%s_%d", file_name_buff, line_num_buff, prototype->lastlinedefined);
+   snprintf(func_name_buff, 1024, "%s:%s_%d", file_name_buff, line_num_buff, prototype->lastlinedefined);
 
    DefineLine(line_num_buff);
    DefineFile(file_name_buff);
@@ -690,173 +690,178 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    auto pTValue = types->PointerTo(luaTypes.TValue);
    auto plua_State = types->PointerTo(luaTypes.lua_State);
 
-   DefineFunction((char*)"luaD_poscall", (char*)"ldo.c", (char*)"453",
-                  (void*)luaD_poscall, Int32,
-                  4,
+   // convenience functions to be called from JITed code
+
+   DefineFunction("printAddr", __FILE__, "0", (void*)printAddr,
+                  NoType, 1,
+                  types->toIlType<void*>());
+
+   // Lua VM functions to be called from JITed code
+
+   DefineFunction("luaD_poscall", "ldo.c", "453", (void*)luaD_poscall,
+                  Int32, 4,
                   types->PointerTo(luaTypes.lua_State),
                   types->PointerTo(luaTypes.CallInfo),
                   luaTypes.StkId,
                   Int32);
 
-   DefineFunction("luaV_equalobj", "lvm.c", "409",
-                  (void*)luaV_equalobj, types->toIlType<int>(),
-                  3,
+   DefineFunction("luaV_equalobj", "lvm.c", "409", (void*)luaV_equalobj,
+                  types->toIlType<int>(), 3,
                   plua_State,
                   pTValue,
                   pTValue);
 
-   DefineFunction("luaV_lessthan", "lvm.c", "366",
-                  (void*)luaV_lessthan, types->toIlType<int>(),
-                  3,
+   DefineFunction("luaV_lessthan", "lvm.c", "366", (void*)luaV_lessthan,
+                  types->toIlType<int>(), 3,
                   plua_State,
                   pTValue,
                   pTValue);
 
-   DefineFunction("luaV_lessequal", "lvm.c", "386",
-                  (void*)luaV_lessequal, types->toIlType<int>(),
-                  3,
+   DefineFunction("luaV_lessequal", "lvm.c", "386", (void*)luaV_lessequal,
+                  types->toIlType<int>(), 3,
                   plua_State,
                   pTValue,
                   pTValue);
 
+   // Lua VM macro wrappers to be called from JITed code
 
-   DefineFunction((char*)"printAddr", (char*)"0", (char*)"0", (void*)printAddr, NoType, 1, Address);
-
-   DefineFunction("jit_setbvalue", "0", "0", (void*)jit_setbvalue,
+   DefineFunction("jit_setbvalue", __FILE__, "0", (void*)jit_setbvalue,
                   NoType, 2,
                   pTValue,
                   types->toIlType<int>());
 
-   DefineFunction("jit_gettableProtected", "0", "0", (void*)jit_gettableProtected,
+   DefineFunction("jit_gettableProtected", __FILE__, "0", (void*)jit_gettableProtected,
                   luaTypes.StkId, 4,
                   plua_State,
                   pTValue,
                   pTValue,
                   pTValue);
 
-   DefineFunction("jit_settableProtected", "0", "0", (void*)jit_settableProtected,
+   DefineFunction("jit_settableProtected", __FILE__, "0", (void*)jit_settableProtected,
                   luaTypes.StkId, 4,
                   plua_State,
                   pTValue,
                   pTValue,
                   pTValue);
 
-   DefineFunction("vm_gettable", "0", "0", (void*)vm_gettable,
+   // Lua VM interpreter helpers
+
+   DefineFunction("vm_gettable", __FILE__, "0", (void*)vm_gettable,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_settable", "0", "0", (void*)vm_settable,
+   DefineFunction("vm_settable", __FILE__, "0", (void*)vm_settable,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_newtable", "0", "0", (void*)vm_newtable,
+   DefineFunction("vm_newtable", __FILE__, "0", (void*)vm_newtable,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_add", "0", "0", (void*)vm_add,
+   DefineFunction("vm_add", __FILE__, "0", (void*)vm_add,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_sub", "0", "0", (void*)vm_sub,
+   DefineFunction("vm_sub", __FILE__, "0", (void*)vm_sub,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_mul", "0", "0", (void*)vm_mul,
+   DefineFunction("vm_mul", __FILE__, "0", (void*)vm_mul,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_mod", "0", "0", (void*)vm_mod,
+   DefineFunction("vm_mod", __FILE__, "0", (void*)vm_mod,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_pow", "0", "0", (void*)vm_pow,
+   DefineFunction("vm_pow", __FILE__, "0", (void*)vm_pow,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_div", "0", "0", (void*)vm_div,
+   DefineFunction("vm_div", __FILE__, "0", (void*)vm_div,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_idiv", "0", "0", (void*)vm_idiv,
+   DefineFunction("vm_idiv", __FILE__, "0", (void*)vm_idiv,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_band", "0", "0", (void*)vm_band,
+   DefineFunction("vm_band", __FILE__, "0", (void*)vm_band,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_bor", "0", "0", (void*)vm_bor,
+   DefineFunction("vm_bor", __FILE__, "0", (void*)vm_bor,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_bxor", "0", "0", (void*)vm_bxor,
+   DefineFunction("vm_bxor", __FILE__, "0", (void*)vm_bxor,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_shl", "0", "0", (void*)vm_shl,
+   DefineFunction("vm_shl", __FILE__, "0", (void*)vm_shl,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_shr", "0", "0", (void*)vm_shr,
+   DefineFunction("vm_shr", __FILE__, "0", (void*)vm_shr,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_unm", "0", "0", (void*)vm_unm,
+   DefineFunction("vm_unm", __FILE__, "0", (void*)vm_unm,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_bnot", "0", "0", (void*)vm_bnot,
+   DefineFunction("vm_bnot", __FILE__, "0", (void*)vm_bnot,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_not", "0", "0", (void*)vm_not,
+   DefineFunction("vm_not", __FILE__, "0", (void*)vm_not,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_len", "0", "0", (void*)vm_len,
+   DefineFunction("vm_len", __FILE__, "0", (void*)vm_len,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_jmp", "0", "0", (void*)vm_jmp,
+   DefineFunction("vm_jmp", __FILE__, "0", (void*)vm_jmp,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_test", "0", "0", (void*)vm_test,
+   DefineFunction("vm_test", __FILE__, "0", (void*)vm_test,
                   Int32, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_testset", "0", "0", (void*)vm_testset,
+   DefineFunction("vm_testset", __FILE__, "0", (void*)vm_testset,
                   Int32, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_forloop", "0", "0", (void*)vm_forloop,
+   DefineFunction("vm_forloop", __FILE__, "0", (void*)vm_forloop,
                   Int32, 2,
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_forprep", "0", "0", (void*)vm_forprep,
+   DefineFunction("vm_forprep", __FILE__, "0", (void*)vm_forprep,
                   NoType, 2,
                   plua_State,
                   luaTypes.Instruction);
@@ -1036,7 +1041,7 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    auto arg_b = GETARG_Bx(instruction);
    builder->Store("rb",
    builder->   IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-   builder->           ConstAddress((void*)(prototype->k)),
+   builder->           ConstAddress(prototype->k),
    builder->           ConstInt32(arg_b)));
 
    // *ra = *rb;
@@ -1156,20 +1161,6 @@ bool Lua::FunctionBuilder::do_newtable(TR::BytecodeBuilder* builder, Instruction
 }
 
 bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Add(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_add", 2,
    builder->           Load("L"),
@@ -1179,20 +1170,6 @@ bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Sub(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_sub", 2,
    builder->           Load("L"),
@@ -1202,20 +1179,6 @@ bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Mul(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_mul", 2,
    builder->           Load("L"),
@@ -1252,20 +1215,6 @@ bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Div(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_idiv", 2,
    builder->           Load("L"),
@@ -1275,20 +1224,6 @@ bool Lua::FunctionBuilder::do_idiv(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              And(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_band", 2,
    builder->           Load("L"),
@@ -1298,20 +1233,6 @@ bool Lua::FunctionBuilder::do_band(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Or(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_bor", 2,
    builder->           Load("L"),
@@ -1321,20 +1242,6 @@ bool Lua::FunctionBuilder::do_bor(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Xor(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_bxor", 2,
    builder->           Load("L"),
@@ -1344,20 +1251,6 @@ bool Lua::FunctionBuilder::do_bxor(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              ShiftL(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_shl", 2,
    builder->           Load("L"),
@@ -1367,20 +1260,6 @@ bool Lua::FunctionBuilder::do_shl(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              ShiftR(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rc"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_shr", 2,
    builder->           Load("L"),
@@ -1390,19 +1269,6 @@ bool Lua::FunctionBuilder::do_shr(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction instruction) {
-   /*builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));   // rb = RKB(i);
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));   // rc = RKC(i);
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Sub(
-   builder->                  ConstInt64(0),
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb"))));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_unm", 2,
    builder->           Load("L"),
@@ -1412,19 +1278,6 @@ bool Lua::FunctionBuilder::do_unm(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_bnot(TR::BytecodeBuilder* builder, Instruction instruction) {
-   // rb = RB(i);
-   /*builder->Store("rb", jit_R(builder, GETARG_B(instruction)));
-
-   builder->StoreIndirect("TValue", "value_",
-   builder->              Load("ra"),
-   builder->              Xor(
-   builder->                  LoadIndirect("TValue", "value_",
-   builder->                               Load("rb")),
-   builder->                  ConstInt64(-1)));
-
-   builder->StoreIndirect("TValue", "tt_",
-   builder->             Load("ra"),
-   builder->             ConstInt32(LUA_TNUMINT));*/
    builder->Store("base",
    builder->      Call("vm_bnot", 2,
    builder->           Load("L"),
@@ -1507,8 +1360,8 @@ bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::IlBuilde
 }
 
 bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction instruction) {
-   auto arg_b = GETARG_B(instruction);
    // b = GETARG_B(i)
+   auto arg_b = GETARG_B(instruction);
    builder->Store("b",
    builder->      ConstInt32(arg_b));
 
@@ -1592,7 +1445,7 @@ TR::IlValue* Lua::FunctionBuilder::jit_R(TR::BytecodeBuilder* builder, int arg) 
 TR::IlValue* Lua::FunctionBuilder::jit_RK(TR::BytecodeBuilder* builder, int arg) {
    return ISK(arg) ?
                      builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-                     builder->        ConstAddress((void*)(prototype->k)),
+                     builder->        ConstAddress(prototype->k),
                      builder->        ConstInt32(INDEXK(arg)))
                    :
                      builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
