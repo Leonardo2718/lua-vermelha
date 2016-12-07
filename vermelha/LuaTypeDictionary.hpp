@@ -11,10 +11,12 @@
 namespace Lua { class TypeDictionary; }
 
 /*
-** A TypeDictionary defining some types specific to Lua
+** A TypeDictionary for defining JitBuilder representations of Lua VM types
 */
 class Lua::TypeDictionary : public TR::TypeDictionary {
 public:
+
+   // struct for caching JitBuilder representations of commonly used VM types
    struct LuaTypes {
       TR::IlType* lu_byte;
       TR::IlType* lua_Integer;

@@ -5,25 +5,21 @@
 #include <cmath>
 #include <stdio.h>
 
+
+//~ convenience functions to be called from JITed code ~~~~~~~~~~~~~~~~~~~~~~~~~
+
 static void printAddr(unsigned char* addr) {
    printf("Compiled! (%p)\n", addr);
 }
 
+
+//~ Lua VM functions and macros ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 /*
-** Try to convert a 'for' limit to an integer, preserving the
-** semantics of the loop.
-** (The following explanation assumes a non-negative step; it is valid
-** for negative steps mutatis mutandis.)
-** If the limit can be converted to an integer, rounding down, that is
-** it.
-** Otherwise, check whether the limit can be converted to a number.  If
-** the number is too large, it is OK to set the limit as LUA_MAXINTEGER,
-** which means no limit.  If the number is too negative, the loop
-** should not run, because any initial integer value is larger than the
-** limit. So, it sets the limit to LUA_MININTEGER. 'stopnow' corrects
-** the extreme case when the initial value is LUA_MININTEGER, in which
-** case the LUA_MININTEGER limit would still run the loop once.
+The following functions and macros are taken from `lvm.c`. These local copies
+are used as helpers either by JITed code of IL generation.
 */
+
 static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
                      int *stopnow) {
   *stopnow = 0;  /* usually, let loops run */
@@ -45,11 +41,6 @@ static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
 
 #define Protect(x)	{ {x;}; base = ci->u.l.base; }
 
-/*
-** some macros for common tasks in 'luaV_execute'
-*/
-
-
 #define RA(i)	(base+GETARG_A(i))
 #define RB(i)	check_exp(getBMode(GET_OPCODE(i)) == OpArgR, base+GETARG_B(i))
 #define RC(i)	check_exp(getCMode(GET_OPCODE(i)) == OpArgR, base+GETARG_C(i))
@@ -65,14 +56,11 @@ static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
     if (a != 0) luaF_close(L, ci->u.l.base + a - 1); \
     ci->u.l.savedpc += GETARG_sBx(i) + e; }
 
-/* for test instructions, execute the jump instruction that follows it */
-#define donextjump(ci)	{ i = *ci->u.l.savedpc; dojump(ci, i, 1); }
-
 
 #define Protect(x)	{ {x;}; base = ci->u.l.base; }
 
 #define checkGC(L,c)  \
-	{ luaC_condGC(L, L->top = (c),  /* limit of live values */ \
+   { luaC_condGC(L, L->top = (c),  /* limit of live values */ \
                          Protect(L->top = ci->top));  /* restore top */ \
            luai_threadyield(L); }
 
@@ -91,6 +79,13 @@ static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
     Protect(luaV_finishset(L,t,k,v,slot)); }
 
 
+//~ Lua VM macro wrappers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/*
+The following are helper functions that wrap Lua VM macros so they can be called
+from JITed code.
+*/
+
 void jit_setbvalue(TValue* obj, int x) {
    setbvalue(obj,x);
 }
@@ -108,6 +103,18 @@ StkId jit_settableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    settableProtected(L, t, k, v);
    return base;
 }
+
+//~ Lua VM interpreter helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/*
+The following functions are helpers for handling specific opcodes. Each
+implements a simplified version of the code in the Lua VM interpreter for
+handling the coresponding opcode. Instead of generating IL for handling these
+opcodes, JITed code can simply call these function, which essentially copy the
+behavior of the the VM interpreter. Although this is not the most optimal
+approach, it is simple and a good way of starting out. As the project evolves,
+calls to these functions can be replaced by "hand-generated" IL.
+*/
 
 StkId vm_gettable(lua_State* L, Instruction i) {
    // prologue
@@ -655,6 +662,8 @@ void vm_forprep(lua_State* L, Instruction i) {
 }
 
 
+//~ general IL generation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
    : TR::MethodBuilder(types), prototype(p), luaTypes(types->getLuaTypes()) {
 
@@ -1009,6 +1018,9 @@ bool Lua::FunctionBuilder::buildIL() {
 
    return true;
 }
+
+
+//~ opcode specific IL generation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 bool Lua::FunctionBuilder::do_move(TR::BytecodeBuilder* builder, Instruction instruction) {
    // setobjs2s(L, ra, RB(i));
@@ -1558,6 +1570,9 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
 
    return true;
 }
+
+
+//~ IL generation helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void Lua::FunctionBuilder::jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* dest, TR::IlValue* src) {
    // *dest = *src;

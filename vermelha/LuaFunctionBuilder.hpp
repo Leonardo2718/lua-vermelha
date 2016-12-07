@@ -22,7 +22,7 @@ public:
 
     /*
     All builder convenience functions take an already allocated
-    builder object, build the opcode they correspond to, and
+    builder object, generate IL for the opcode they correspond to, and
     return true if successful, false otherwise.
     */
 
