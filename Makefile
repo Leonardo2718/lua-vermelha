@@ -81,7 +81,7 @@ cleanall:
 	cd $(VERMELHA_DIR) && $(MAKE) cleanall
 	cd $(JITBUILDER_DIR) && $(MAKE) clean
 
-# lua patch 
+# lua patch
 
 # version of lua to diff against
 LUA?=luavm
