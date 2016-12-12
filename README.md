@@ -1,7 +1,7 @@
 # Lua Vermelha
 
-Lua Vermelha is an implementation of the [Lua](http://www.lua.org) language 
-with a Just-In-Time (JIT) compiler built from
+Lua Vermelha is an implementation of the [Lua](http://www.lua.org) language,
+version 5.3.3, with a Just-In-Time (JIT) compiler built from
 [Eclipse OMR](https://github.com/eclipse/omr) compiler technology.
 
 It is designed to integrate into the [PUC-Rio Lua](http://www.lua.org) virtual
@@ -23,7 +23,7 @@ $ git clone --recursive https://github.com/Leonardo2718/lua-vermelha.git
 Currently, the only tested and supported platform is Linux on x86-64.
 Support for other platforms will come later on. Until then, if you need to
 build Lua Vermelha on a different platform, you should be able to easily
-modify the makefiles manually to suite your needs.
+modify the makefiles manually to suit your needs.
 
 **IMPORTANT**: Before JitBuilder can be built (and by extension Lua Vermelha),
 it's important to configure OMR for your platform (see the
