@@ -1,5 +1,10 @@
-#ifndef ljit_h
-#define ljit_h
+/*
+** Lua Vermelha JIT API
+** See Copyright Notice in lua.h
+*/
+
+#ifndef lvermelha_h
+#define lvermelha_h
 
 #include "lua.h"
 #include "lobject.h"
@@ -29,5 +34,5 @@ typedef void (*lua_JitFunction)(lua_State*);
 */
 lua_JitFunction luaJ_compile(Proto* p);
 
-#endif /* ljit_h */
+#endif /* lvermelha_h */
 
