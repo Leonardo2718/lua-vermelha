@@ -1,3 +1,10 @@
+--[[
+  Run all test files
+  
+  Each test file is intended to a specific opcode
+  or family of opcodes
+--]]
+
 local test_files = { "arithmetic.lua"
                    , "asserts.lua"
                    , "booleans.lua"

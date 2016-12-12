@@ -1,9 +1,28 @@
+--[[
+  Tests for the TEST and TESTSET opcodes
+
+  The TEST and TESTSET opcodes are generated when
+  performing boolean opertations. Each test function
+  has a boolean operation that generates a different
+  invocation to one of the two opcodes. A test passes
+  if the value returned by a function equals the
+  expected value of the computation.
+  
+  Other opcodes exercised by this function:
+    - JMP
+    - MOVE
+    - RETRUN
+--]]
+
 local asserts = require "asserts"
 local assert_equal = asserts.assert_equal
 
 local function op_and(a,b) return a and b end
+  -- generates TESTSET with ARG_C = 0
 local function op_or(a,b) return a or b end
+  -- generates TESTSET with ARG_C = 1
 local function ternary(a,b,c) return a and b or c end
+  -- generates TEST and TESTSET
 
 assert_equal(false, op_and(false,false), "op_and(false,false)")
 assert_equal(false, op_and(false,true), "op_and(false,true)")

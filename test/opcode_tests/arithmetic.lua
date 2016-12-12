@@ -1,3 +1,15 @@
+--[[
+  Test for arithmetic and bitwise opcodes
+
+  A function is defined that exercises each arithmetic
+  and bitwise opcode. The function names match the 
+  opcode they test. A test passes if the value returned
+  by a function equals the expected value of the computation.
+  
+  Other opcodes exercised by this function:
+    - RETRUN
+--]]
+
 local asserts = require "asserts"
 local assert_equal = asserts.assert_equal
 
@@ -32,4 +44,3 @@ assert_equal(1, op_shr(4,2), "op_shr(4,2)")
 assert_equal(-3, op_unm(3), "op_unm(3)")
 assert_equal(~15, op_bnot(15), "op_bnot(15)")
 assert_equal(false, op_not(true), "op_not(true)")
-

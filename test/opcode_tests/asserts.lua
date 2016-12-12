@@ -1,3 +1,8 @@
+--[[
+  Module defining asserts that can be used
+  in test cases
+--]]
+
 local asserts = {}
 
 asserts.assert_equal = function (exp, got, msg)
@@ -5,4 +10,3 @@ asserts.assert_equal = function (exp, got, msg)
 end
 
 return asserts
-

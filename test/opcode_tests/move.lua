@@ -1,3 +1,16 @@
+--[[
+  Test for the MOVE opcode
+
+  The swap function uses three MOVE opcodes to
+  swap the values of its parameters. The test
+  passes if, after calling `swap()` on two variables,
+  the original value of each variable is stored
+  in the other.
+  
+  Other opcodes exercised by this function:
+    - RETRUN
+--]]
+
 local asserts = require "asserts"
 local assert_equal = asserts.assert_equal
 

@@ -1,3 +1,17 @@
+--[[
+  Test for comparison opcodes
+
+  A function is defined that exercises each compoarison
+  opcode. The function names match the opcode they are
+  intended to test. A test passes if the value returned
+  by a function equals the expected value of the computation.
+  
+  Other opcodes exercised by this function:
+    - JMP
+    - LOADBOOL
+    - RETRUN
+--]]
+
 local asserts = require "asserts"
 local assert_equal = asserts.assert_equal
 

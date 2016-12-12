@@ -1,3 +1,18 @@
+--[[
+  Test upvalue table opcodes
+
+  A function is defined the exercises each opcode
+  that operates on the upvalue table. The function
+  names match the opcode they test. For SETTABUP,
+  the test passes if the expected value is in the
+  table after executing the opcode. For GETTABUP,
+  the test passes if the value from the upvalue
+  table is returned after executing the opcode.
+  
+  Other opcodes exercised by this function:
+    - RETRUN
+--]]
+
 local asserts = require "asserts"
 local assert_equal = asserts.assert_equal
 
