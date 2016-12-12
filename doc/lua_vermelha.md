@@ -1,129 +1,105 @@
 # Lua Vermelha
 
-*Please note that Lua Vermelha is under active development and may not be ready for a production environment.*
+*Please note that Lua Vermelha is under active development and is not ready for a production environment.*
 
 ## Introduction
 
-Lua Vermelha is designed to behave the same way as PUC-Rio Lua. It's intended to
-be used seamlessly in place of PUC-Rio Lua. The main benefit it provides is 
-improved performance at the cost of slightly larger footprint.
+Lua Vermelha is designed to behave the same way as PUC-Rio Lua. Any project
+that uses the PUC-Rio Lua as a library can also use Lua Vermelha. The main
+benefit it provides is improved performance, thanks to the JIT compiler, at
+the cost of a larger footprint.
 
-Projects that consume the Lua VM as a library can also consume Lua Vermelha. The
-build system should be flexible enough to support most use cases with
-minimal changes.
+The JIT compiler is built using Eclipse OMR JitBuilder. JitBuilder is a
+framework that simplifies the creation of JIT compilers by leveraging
+the Eclipse OMR compiler technology. See the
+[Eclipse OMR GitHub page](https://github.com/eclipse/omr) for more details
+about the project.
 
 ## Architecture overview
 
 There are three main components that make up Lua Vermelha:
 
 1. The minimally modified PUC-Rio Lua virtual machine
-2. The Eclipse OMR JitBuilder library used to create the JIT compiler
+2. The Eclipse OMR JitBuilder library
 3. The JIT compiler itself
-
-The Lua VM provides the core functionality of the language implementation. The
-minimal changes done on it implement the necessary mechanism for dispatching
-the JIT compiler. Consumption of the Eclipse OMR compiler technology is
-encapsulated in JitBuilder, which is in turn consumed by the JIT.
-
-## Building and Consuming
-
-The source code for each of these components is in a different sub-directory:
-
-- `lua/` contains the modified Lua VM
-- `omr/` is a git submodule containing the source code for Eclipse OMR and JitBuilder
-- `vermelha/` contains the JIT compiler
-
-The build system for Lua Vermelha was designed to support different consumption
-strategies. The following explains how to build the different components.
-
-### JitBuilder
-
-Being part of the Eclipse OMR project, JitBuilder can be used as is. Currently,
-only building it as a static library (archive) is supported. See the Eclipse
-OMR project page for details.
-
-### JIT compiler
-
-The default and recommended way of building the JIT is as a static library.
-It can then either be linked into the VM library or as part of the final
-application.
-
-Another currently supported strategy is to link the JIT as an object file.
-In this case, the intermediate object files are linked into a single
-(large) object file, which can then be linked as any other object
-file would be.
-
-The following phony targets are provided by the JIT Makefile to build the
-different binaries:
-
-* `staticlib` (`default`) to build the JIT as a static archive
-* `vermelhaobj` to build the JIT as an object file
-
-Currently, the JIT must be linked directly into the VM (regardless of the
-binary used), so building it as a shared library is not currently supported.
-
-When building the JIT, the `LUA_C_LINKAGE` macro must be defined if the VM
-is compiled as C code. This ensures that no name-mangling issues occur when
-linking the JIT and the VM together. This macro can be defined when invoking
-`make` by specifying `CXX_FLAGS_EXTRA='-DLUA_C_LINKAGE'` (see top level
-Makefile for an example).
-
-The following table lists the configuration variables that can be specified
-when calling `make` to build the JIT:
-
-| Variable             | Default Value     | Description            |
-|:--------------------:|:-----------------:|:-----------------------|
-| `CXX`                | `g++`             | The C++ build compiler |
-| `AR`                 | `ar`              | The archive generator  |
-| `LD`                 | `ld`              | The linker             |
-| `CXX_FLAGS_EXTRA`    | (empty)           | Extra flags to pass to the C++ compiler |
-| `LD_FLAGS_EXTRA`     | (empty)           | Extra flags to pass to the linker |
-| `ARCH`               | `x` (for x86)     | Main architecture      |
-| `SUBARCH`            | `amd64`           | Sub-architecture       |
-| `STATICLIB_NAME`     | `libvermelha.a`   | Name of generated JIT static library |
-| `VERMELHAOBJ_NAME`   | `vermelha.o`      | Name of generated JIT object file |
-| `BIN_DIR`            | `$(PWD)`          | Target directory for generated binaries |
-| `STATICLIB_DEST`     | `$(BIN_DIR)`      | Target directory for generated JIT static library |
-| `VERMELHAOBJ_DEST`   | `$(BIN_DIR)`      | Target directory for generated JIT object file |
-| `OBJS_DIR`           | `$(BIN_DIR)/objs` | Target directory for intermediate object files |
-| `LUA_DIR`            | `../`             | Directory containing the Lua VM directory |
-| `OMR_DIR`            | `../omr`          | Directory containing Eclipse OMR source code |
-| `JITBUILDER_LIB_DIR` | (see bellow)      | Directory containing the JitBuilder binary |
-
-Other variables are provided for maximum flexibility, though it is unlikely
-any project will need to use them:
-
-| Variable                   | Default Value                         | Description   |
-|:--------------------------:|:-------------------------------------:|:--------------|
-| `JITBUILDER_DIR`           | `$(OMR_DIR)/jitbuilder`               | Directory containing JitBuilder source code |
-| `JITBUILDER_ARCH_DIR`      | `$(JITBUILDER_DIR)/$(ARCH)`           | Directory containing architecture specific JitBuilder source code |
-| `JITBUILDER_SUBARCH_DIR`   | `$(JITBUILDER_ARCH_DIR)/$(SUBARCH)`   | Directory containing sub-architecture specific JitBuilder source code |
-| `JITBUILDER_LIB_DIR`       | `$(JITBUILDER_DIR)/release`           | (see above)   |
-| `JITBUILDER_HEADERS`       | `$(JITBUILDER_LIB_DIR)/include`       | Directory containing the JitBuilder headers |
-| `OMR_COMPILER_DIR`         | `$(OMR_DIR)/compiler`                 | Directory containing Eclipse OMR compiler source code |
-| `OMR_COMPILER_ARCH_DIR`    | `$(OMR_COMPILER_DIR)/$(ARCH)`         | Directory containing architecture specific Eclipse OMR compiler source code
-| `OMR_COMPILER_SUBARCH_DIR` | `$(OMR_COMPILER_ARCH_DIR)/$(SUBARCH)` | Directory containing sub-architecture specific Eclipse OMR compiler source code
-
 
 ### Lua VM
 
-The build system for the Lua VM is mostly unchanged and should work as
-the same as that of PUC-Rio Lua.
+The Lua VM provides the core functionality of the language implementation.
+It includes major components such as the interpreter and the garbage
+collector. The minimal changes done to it implement the necessary mechanism
+for dispatching the JIT compiler.
 
-### Putting it together
+When the Lua VM is instantiated, it initializes the JIT and starts the
+interpreter. When the interpreter encounters a function call, it dispatches
+the JIT, which will attempt to compile the function. If the compilation is
+successful, the interpreter calls the compiled function body. Subsequent 
+calls to the function will also dispatch the JITed code. Otherwise,
+the function is simply interpreted and execution proceeds normally.
 
-Once the three components have bee built separately, they can be linked
-into the final application. In this case, it's important that linking be
-done either by a C++ compiler or by explicitly linking the C++ standard
-library.
+This is by no means an optimal approach to JIT dispatching. However, it
+makes it easier to find and debug problems in the JIT.
 
-Alternatively, the JIT and JitBuilder can be linked together (once again
-by a C++ compiler) and then linked into a C application.
+#### Lua patch file
 
-## Building the Standard Lua VM
+For convenience, this repo contains a git branch called `luavm` which contains
+the unchanged PUC-Rio Lua VM code. Each commit on this branch is tagged with
+the version of Lua it contains.
 
-The top level Makefile can be used to create an executable Lua VM. It
+The top-level Makefile on the `master` and `devel` branches has a special
+phony target called `lua-patch`. It can be used to generate a git patch file
+with the changes done applied to the VM between two commits. By default,
+it will use the current `HEAD` and `luavm` commits. Running
+
+```sh
+$ make lua-patch
+```
+
+will generated a patch file called `luavm-HEAD.patch`. The `LUA` variable
+can be set to point to whatever commit contains the unchanged Lua code.
+Likewise, the `COMMIT` variable can be set to point to whatever commit
+contains the modified Lua VM code.
+
+### Eclipse OMR JitBuilder
+
+The [Eclipse OMR Project](http://www.eclipse.org/omr) provides a collection
+of reusable cross-platform components for building language runtimes. One
+of these components is the compiler technology, which can be used to create
+JIT compilers.
+
+Although the compiler technology is very powerful and flexible, it is also
+very complex. The Eclipse OMR project therefore also provides a component
+called JitBuilder.
+
+JitBuilder is a framework that simplifies leveraging the Eclipse OMR
+compiler to build JITs. It reduces boiler plated code by provide sane
+default implementations for major tasks such as code optimization and
+code generation. It also provides a declarative interface for generating
+the Eclipse OMR Compiler intermediate language (IL).
+
+The JIT compiler in Lua Vermelha is built using JitBuilder. 
+
+### Lua Vermelha JIT
+
+The JIT compiler is the major components that makes Lua Vermelha what it is.
+
+When the JIT is invoked by the interpreter, it takes as parameter an
+object that contains the bytecode implementation of the function. It then
+iterates over each bytecode, generating IL that represents what the
+interpreter would do if it encountered the specific bytecode. If IL is
+successfully generated for each bytecode, the intermediate representation
+of the function is handed over to JitBuilder for optimization and
+code generation.
+
+If compilation is successful, JitBuilder will cache the compiled code
+in executable memory and return a pointer to it. The interpreter can
+then jump to the compiled body instead of interpreting the function.
+
+## luav executable front end
+
+The top level `Makefile` can be used to create an executable Lua VM. It
 simply builds JitBuilder, builds the JIT (as a static library), builds
-the VM (also as a static library), and links them all together. The VM
-is built with gcc and the final linking is done with g++. This Makefile
-can be used as an example of how to link Lua Vermelha into other projects.
+the VM (also as a static library), builds the frontend, and links them
+all together. The VM and the frontend are built with `gcc` while JitBuilder
+and the JIT itself are compiled with `g++`. Linking is also done by `g++`.
+This Makefile serves as an example of how to build and consume Lua Vermelha.
