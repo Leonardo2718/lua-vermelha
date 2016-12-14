@@ -68,13 +68,6 @@ static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
 	ISK(GETARG_C(i)) ? k+INDEXK(GETARG_C(i)) : base+GETARG_C(i))
 
 
-/* execute a jump instruction */
-#define dojump(ci,i,e) \
-  { int a = GETARG_A(i); \
-    if (a != 0) luaF_close(L, ci->u.l.base + a - 1); \
-    ci->u.l.savedpc += GETARG_sBx(i) + e; }
-
-
 #define Protect(x)	{ {x;}; base = ci->u.l.base; }
 
 #define checkGC(L,c)  \
@@ -543,21 +536,6 @@ StkId vm_len(lua_State* L, Instruction i) {
    return base;
 }
 
-StkId vm_jmp(lua_State* L, Instruction i) {
-   // prologue
-   CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
-   StkId base = ci->u.l.base;
-   StkId ra = RA(i);
-
-   // main body
-   dojump(ci, i, 0);
-
-   // epilogue
-   return base;
-}
-
 int32_t vm_test(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -723,6 +701,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.StkId,
                   Int32);
 
+   DefineFunction("luaF_close", "lfunc.c", "83", (void*)luaF_close,
+                  NoType, 2,
+                  plua_State,
+                  luaTypes.StkId);
+
    DefineFunction("luaV_equalobj", "lvm.c", "409", (void*)luaV_equalobj,
                   types->toIlType<int>(), 3,
                   plua_State,
@@ -855,11 +838,6 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.Instruction);
 
    DefineFunction("vm_len", __FILE__, "0", (void*)vm_len,
-                  luaTypes.StkId, 2,
-                  plua_State,
-                  luaTypes.Instruction);
-
-   DefineFunction("vm_jmp", __FILE__, "0", (void*)vm_jmp,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
@@ -1323,10 +1301,35 @@ bool Lua::FunctionBuilder::do_len(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_jmp(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("base",
-   builder->      Call("vm_jmp", 2,
-   builder->           Load("L"),
-   builder->           ConstInt32(instruction)));
+#ifdef FULL_IL_GEN
+   builder->Store("a",
+   builder->      ConstInt32(GETARG_A(instruction)));
+
+   TR::IlBuilder* call_luaF_close = OrphanBuilder();
+   builder->IfThen(&call_luaF_close,
+   builder->       NotEqualTo(
+   builder->               Load("a"),
+   builder->               ConstInt32(0)));
+
+   call_luaF_close->Call("luaF_close", 2,
+   call_luaF_close->     Load("L"),
+   call_luaF_close->     Add(
+   call_luaF_close->         LoadIndirect("CallInfo", "u.l.base",
+   call_luaF_close->                      Load("ci")),
+   call_luaF_close->         Sub(
+   call_luaF_close->             Load("a"),
+   call_luaF_close->             ConstInt32(1))));
+#else
+   int arg_a = GETARG_A(instruction);
+   if (arg_a != 0) {
+      builder->Call("luaF_close", 2,
+      builder->     Load("L"),
+      builder->     Add(
+      builder->         LoadIndirect("CallInfo", "u.l.base",
+      builder->                      Load("ci")),
+      builder->         ConstInt32(arg_a - 1)));
+   }
+#endif
 
    return true;
 }
