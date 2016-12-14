@@ -5,3 +5,11 @@
 lua/lua
 lua/luac
 luav
+
+# Qt Creator files
+LuaVermelha.config
+LuaVermelha.creator
+LuaVermelha.files
+LuaVermelha.includes
+*.user
+
