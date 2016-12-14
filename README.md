@@ -1,7 +1,7 @@
 # Lua Vermelha
 
-Lua Vermelha is an implementation of the [Lua](http://www.lua.org) language,
-version 5.3.3, with a Just-In-Time (JIT) compiler built from
+Lua Vermelha is an implementation of [Lua](http://www.lua.org) 5.3 with a
+Just-In-Time (JIT) compiler built from
 [Eclipse OMR](https://github.com/eclipse/omr) compiler technology.
 
 It is designed to integrate into the [PUC-Rio Lua](http://www.lua.org) virtual
