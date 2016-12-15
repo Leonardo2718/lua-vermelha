@@ -42,9 +42,17 @@ lua_JitFunction luaJ_compile(Proto* p) {
    Lua::TypeDictionary types;
    uint8_t* entry = nullptr;
    Lua::FunctionBuilder f(p, &types);
+
    uint32_t rc = compileMethodBuilder(&f, &entry);
-   if (rc == 0)
+
+   if (rc == 0) {
       return (lua_JitFunction)entry;
-   else
+   }
+   else {
       return nullptr;
+   }
+}
+
+unsigned int luaJ_initcallcounter() {
+   return 100;
 }

@@ -425,7 +425,8 @@ typedef struct Proto {
   TValue *k;  /* constants used by the function */
   Instruction *code;  /* opcodes */
   lua_JitFunction compiledcode; /* function body compiled by JIT */
-  int triedcompile;  /* whether the JIT has already attempted to compile this function */
+  int jitflags; /* whether the JIT has already attempted to compile this function */
+  unsigned int callcounter;  /* counter to trigger a JIT compilation */
   struct Proto **p;  /* functions defined inside the function */
   int *lineinfo;  /* map from opcodes to source lines (debug information) */
   LocVar *locvars;  /* information about local variables (debug information) */

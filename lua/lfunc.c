@@ -19,6 +19,8 @@
 #include "lmem.h"
 #include "lobject.h"
 #include "lstate.h"
+#include "lvermelha.h"
+#include "lvapi.h"
 
 
 
@@ -105,7 +107,8 @@ Proto *luaF_newproto (lua_State *L) {
   f->sizep = 0;
   f->code = NULL;
   f->compiledcode = NULL;
-  f->triedcompile = 0;
+  f->jitflags = LUA_NOJITFLAGS;
+  f->callcounter = luaJ_initcallcounter();
   f->cache = NULL;
   f->sizecode = 0;
   f->lineinfo = NULL;

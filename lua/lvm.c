@@ -31,6 +31,7 @@
 #include "lvm.h"
 
 #include "lvermelha.h"
+#include "lvapi.h"
 
 
 /* limit for table tag-method chains (to avoid loops) */
@@ -1141,16 +1142,16 @@ void luaV_execute (lua_State *L) {
         else {  /* Lua function */
           /* dispatch the JIT */
           Proto* p = getproto(L->ci->func);
-          lua_JitFunction f = p->compiledcode;
-          if (!f && !p->triedcompile) {
-            f = luaJ_compile(p);
-            p->triedcompile = 1;
-            if (f) {
-              p->compiledcode = f;
-            }
+          if (!LUA_ISBLACKLISTED(p) &&
+              p->callcounter == 0 &&
+              !LUA_ISCOMPILED(p)) {
+             lua_compile(p);
           }
-          if (f) {
-             f(L);
+          if (LUA_ISCOMPILED(p)) {
+             p->compiledcode(L);
+          }
+          else {
+             p->callcounter--;
           }
           ci = L->ci;
           goto newframe;  /* restart luaV_execute over new Lua function */
