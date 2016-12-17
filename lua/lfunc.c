@@ -13,6 +13,7 @@
 #include <stddef.h>
 
 #include "lua.h"
+#include "luav.h"
 
 #include "lfunc.h"
 #include "lgc.h"
@@ -20,7 +21,6 @@
 #include "lobject.h"
 #include "lstate.h"
 #include "lvermelha.h"
-#include "lvapi.h"
 
 
 

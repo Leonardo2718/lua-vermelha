@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "lua.h"
+#include "luav.h"
 
 #include "ldebug.h"
 #include "ldo.h"
@@ -1142,12 +1143,13 @@ void luaV_execute (lua_State *L) {
         else {  /* Lua function */
           /* dispatch the JIT */
           Proto* p = getproto(L->ci->func);
-          if (!LUA_ISBLACKLISTED(p) &&
-              p->callcounter == 0 &&
-              !LUA_ISCOMPILED(p)) {
-             lua_compile(p);
+          if (!(p->jitflags & LUA_BLACKLIST) &&  /* is not blacklisted */
+              p->callcounter == 0 &&             /* called enough times */
+              p->compiledcode == NULL) {         /* not yet compiled */
+             luaJ_compile(p);
+             LUAJ_BLACKLIST(p);
           }
-          if (LUA_ISCOMPILED(p)) {
+          if (p->compiledcode) {
              p->compiledcode(L);
           }
           else {

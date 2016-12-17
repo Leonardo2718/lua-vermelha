@@ -27,9 +27,6 @@
 // OMR headers
 #include "ilgen/TypeDictionary.hpp"
 
-/*
-** JitBuilder functions
-*/
 int luaJ_initJit() {
    return initializeJit() ? 0 : 1;
 }
@@ -38,7 +35,7 @@ void luaJ_stopJit() {
    shutdownJit();
 }
 
-lua_JitFunction luaJ_compile(Proto* p) {
+lua_JitFunction luaJ_invokejit(Proto* p) {
    Lua::TypeDictionary types;
    uint8_t* entry = nullptr;
    Lua::FunctionBuilder f(p, &types);
@@ -50,6 +47,19 @@ lua_JitFunction luaJ_compile(Proto* p) {
    }
    else {
       return nullptr;
+   }
+}
+
+int luaJ_compile(Proto* p) {
+   lua_JitFunction f = luaJ_invokejit(p);
+
+   if (f) {
+      p->compiledcode = f;
+      return 1;
+   }
+   else {
+      p->compiledcode = NULL;
+      return 0;
    }
 }
 
