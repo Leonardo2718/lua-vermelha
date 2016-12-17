@@ -20,6 +20,7 @@
 CXX?= g++
 AR?= ar
 LD?= ld
+MKDIR?= mkdir -p
 
 ARCH?= x
 SUBARCH?= amd64
@@ -86,8 +87,11 @@ $(SHAREDLIB_NAME): $(SHAREDLIB_PATH)
 $(SHAREDLIB_PATH): $(OBJECT_FILES)
 	$(CXX) -shared -o $@ $(OBJECT_FILES) $(LD_FLAGS_EXTRA) $(JITBUILDER_LIB_DIR)/libjitbuilder.a -ldl
 
-$(OBJS_DIR)/%.o: %.cpp *.hpp
+$(OBJS_DIR)/%.o: %.cpp *.hpp $(OBJS_DIR)
 	$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+$(OBJS_DIR):
+	$(MKDIR) $@
 
 clean:
 	rm -f $(OBJECT_FILES)
