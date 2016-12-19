@@ -1143,7 +1143,7 @@ void luaV_execute (lua_State *L) {
         else {  /* Lua function */
           /* dispatch the JIT */
           Proto* p = getproto(L->ci->func);
-          if (!(p->jitflags & LUA_BLACKLIST) &&  /* is not blacklisted */
+          if (!(p->jitflags & LUA_JITBLACKLIST) &&  /* is not blacklisted */
               p->callcounter == 0 &&             /* called enough times */
               p->compiledcode == NULL) {         /* not yet compiled */
              luaJ_compile(p);

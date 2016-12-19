@@ -12,7 +12,7 @@
 ** Function flags for Lua Vermelha JIT
 */
 #define LUA_NOJITFLAGS 0x0
-#define LUA_BLACKLIST  0x1   /* shouldn't (re)compile function */
+#define LUA_JITBLACKLIST  0x1   /* shouldn't (re)compile function */
 
 /*
 ** Check if the given JIT flags is set for the function at the given index.

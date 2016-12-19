@@ -9,20 +9,23 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-static int lvjit_isblacklisted(lua_State* L) {
-   int ret = lua_checkjitflags(L, 1, LUA_BLACKLIST);
-   lua_pushboolean(L, ret);
+static int lvjit_checkjitflags(lua_State* L) {
+   int flags = lua_tointeger(L, -1);
+   int ret = lua_checkjitflags(L, -2, flags);
+   lua_pushinteger(L, ret);
 
    return 1;
 }
 
-int lvjit_blacklist(lua_State* L) {
-   lua_setjitflags(L, 1, LUA_BLACKLIST);
+int lvjit_setjitflags(lua_State* L) {
+   int flags = lua_tointeger(L, -1);
+   lua_setjitflags(L, -2, flags);
    return 0;
 }
 
-int lvjit_clearblacklist(lua_State* L) {
-   lua_clearjitflags(L, 1, LUA_BLACKLIST);
+int lvjit_clearjitflags(lua_State* L) {
+   int flags = lua_tointeger(L, -1);
+   lua_clearjitflags(L, -2, flags);
    return 0;
 }
 
@@ -33,29 +36,36 @@ static int lvjit_initcallcounter(lua_State* L) {
 }
 
 static int lvjit_iscompiled(lua_State* L) {
-   int ret = lua_iscompiled(L, 1);
+   int ret = lua_iscompiled(L, -1);
    lua_pushboolean(L, ret);
    return 1;
 }
 
 static int lvjit_compile(lua_State* L) {
-   int ret = lua_compile(L, 1);
+   int ret = lua_compile(L, -1);
    lua_pushboolean(L, ret);
    return 1;
 }
 
 static const luaL_Reg lvjitlib[] = {
-   {"isblacklisted", lvjit_isblacklisted},
-   {"blacklist", lvjit_blacklist},
-   {"clearblacklist", lvjit_clearblacklist},
+   {"checkjitflags", lvjit_checkjitflags},
+   {"setjitflags", lvjit_setjitflags},
+   {"clearjitflags", lvjit_clearjitflags},
    {"initcallcounter", lvjit_initcallcounter},
    {"iscompiled", lvjit_iscompiled},
    {"compile", lvjit_compile},
+   /* placeholders for JIT flags */
+   {"NOJITFLAGS", NULL},
+   {"JITBLACKLIST", NULL},
    {NULL, NULL}
 };
 
 LUAMOD_API int luaopen_lvjit(lua_State* L) {
    luaL_newlib(L, lvjitlib);
+   lua_pushinteger(L, LUA_NOJITFLAGS);
+   lua_setfield(L, -2, "NOJITFLAGS");
+   lua_pushinteger(L, LUA_JITBLACKLIST);
+   lua_setfield(L, -2, "JITBLACKLIST");
    return 1;
 }
 
