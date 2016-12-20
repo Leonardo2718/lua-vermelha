@@ -18,9 +18,8 @@
 --]]----------------------------------------------------------------------------
 
 --[[
-  Test that a function gets compiled after enough calls by the interpreter. Test
-  passes if the function under test is not compiled before and after the first
-  100 calls to it and the 101st call causes it to be JIT compiled.
+  Test that a black listed function does not get JIT compiled. The test
+  passes if the function under test is not compiled after 101 calls to it.
 ]]--
 
 local jit = require "lvjit"
@@ -28,14 +27,15 @@ local jit = require "lvjit"
 local function foo() end
 
 assert(not jit.iscompiled(foo), "foo compiled before any calls")
+assert(jit.NOJITFLAGS == jit.checkjitflags(foo, -1), "default function JIT flags is not `NOJITFLAGS`")
+
+-- black list the function
+jit.setjitflags(foo, jit.JITBLACKLIST)
+assert(jit.JITBLACKLIST == jit.checkjitflags(foo, -1), "function JIT flag JITBLACKLIST not set after call to `jit.setjitflags(foo, jit.JITBLACKLIST)`")
 
 -- call `foo` enough times to force a compilation
 local initcount = jit.initcallcounter()
-for i = 1,initcount do
+for i = 1,initcount + 1 do
    foo()
-   assert(not jit.iscompiled(foo), "foo compiled after "..tostring(i).." call(s) instead of "..tostring(initcount))
+   assert(not jit.iscompiled(foo), "foo compiled after "..tostring(i).." call(s) despite being black listed")
 end
-
-foo()
-assert(jit.iscompiled(foo), "foo not compiled after "..tostring(initcount).." call(s)")
-

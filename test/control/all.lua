@@ -25,6 +25,7 @@ local test_files = { "initcounter.lua"
                    , "jitflags.lua"
                    , "lvjitlib_compile.lua"
                    , "jit_compile.lua"
+                   , "jit_blacklist.lua"
                    }
 
 for _,file in ipairs(test_files) do
