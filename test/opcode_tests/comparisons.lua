@@ -20,10 +20,12 @@
 --[[
   Test for comparison opcodes
 
-  A function is defined that exercises each compoarison
+  A test function is defined to exercises each compoarison
   opcode. The function names match the opcode they are
-  intended to test. A test passes if the value returned
-  by a function equals the expected value of the computation.
+  intended to test. A test passes if the test function is
+  successfully compiled and the value returned by the
+  compiled function equals the expected value of the
+  computation represented by the call to the test function.
   
   Other opcodes exercised by this function:
     - JMP
@@ -31,16 +33,28 @@
     - RETRUN
 --]]
 
+-- setup
 local asserts = require "asserts"
+local jit = require "lvjit"
 local assert_equal = asserts.assert_equal
+local assert_compile = asserts.assert_compile
+jit.setjitflags(assert_equal, jit.JITBLACKLIST)
+jit.setjitflags(assert_compile, jit.JITBLACKLIST)
 
+-- define test functions
 local function op_eq(a, b) return a == b end
 local function op_lt(a, b) return a < b end
 local function op_le(a, b) return a <= b end
 
+-- run tests
+assert_compile(op_eq, "op_eq")
 assert_equal(false, op_eq(1,2), "op_eq(1,2)")
 assert_equal(true, op_eq(1,1), "op_eq(1,1)")
+
+assert_compile(op_lt, "op_lt")
 assert_equal(false, op_lt(1,1), "op_lt(1,1)")
 assert_equal(true, op_lt(1,2), "op_lt(1,2)")
+
+assert_compile(op_le, "op_le")
 assert_equal(false, op_le(2,1), "op_le(2,1)")
 assert_equal(true, op_le(1,1), "op_le(1,1)")

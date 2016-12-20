@@ -20,13 +20,15 @@
 --[[
   Test the loop opcodes
 
-  A function is defined that exercises the FORPREP
+  A test function is defined that exercises the FORPREP
   and FORLOOP opcodes. A single function is used to
   test both of these because a well formed function
   cannot have one without the other. The function
   uses a loop to perform a computation and returns
-  the result. The test passes if the function returns
-  the expected result of the computation.
+  the result. The test passes if the test function is
+  successfully compiled and a call to the compiled
+  function returns the expected result of the
+  computation represented by the function.
   
   Other opcodes exercised by this function:
     - LOADK
@@ -35,9 +37,15 @@
     - RETRUN
 --]]
 
+-- setup
 local asserts = require "asserts"
+local jit = require "lvjit"
 local assert_equal = asserts.assert_equal
+local assert_compile = asserts.assert_compile
+jit.setjitflags(assert_equal, jit.JITBLACKLIST)
+jit.setjitflags(assert_compile, jit.JITBLACKLIST)
 
+-- define test function
 local function sum(a,b,inc)
    local r = 0
    for i = a,b,inc do
@@ -46,4 +54,6 @@ local function sum(a,b,inc)
    return r
 end
 
+-- run test
+assert_compile(sum, "sum")
 assert_equal(30, sum(0,10,2), "sum(0,10,2)")

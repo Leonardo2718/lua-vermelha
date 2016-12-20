@@ -22,10 +22,18 @@
   in test cases
 --]]
 
+local jit = require "lvjit"
+
 local asserts = {}
 
+-- asserts that two values are equal
 asserts.assert_equal = function (exp, got, msg)
    assert(exp == got, msg .. " [ " .. tostring(exp) .. " ~= " .. tostring(got) .. " ]")
+end
+
+-- compiles a function and asserts that compilation succeeded
+asserts.assert_compile = function (f, info)
+  assert(jit.compile(f), "failed to compile function "..tostring(f).." ["..info.."]")
 end
 
 return asserts

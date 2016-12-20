@@ -20,20 +20,27 @@
 --[[
   Test for JMP opcode
 
-  The function defined exercises the JMP opcode.
+  The test function defined exercises the JMP opcode.
   The `goto` statement generate a JMP that, when executed,
   will skip a variable assignment. The test passes if
-  only the first assignment to the returned variabled
-  is executed.
+  the test function is successfully compiled and only the
+  first assignment to the returned variable is executed
+  when the compiled function is called.
   
   Other opcodes exercised by this function:
     - LOADK
     - RETRUN
 --]]
 
+-- setup
 local asserts = require "asserts"
+local jit = require "lvjit"
 local assert_equal = asserts.assert_equal
+local assert_compile = asserts.assert_compile
+jit.setjitflags(assert_equal, jit.JITBLACKLIST)
+jit.setjitflags(assert_compile, jit.JITBLACKLIST)
 
+-- define test function
 local function return4not3()
    local a = 4
    goto last
@@ -42,4 +49,6 @@ local function return4not3()
    return a
 end
 
+-- run test
+assert_compile(return4not3, "return4not3")
 assert_equal(4, return4not3(), "return4not3()")

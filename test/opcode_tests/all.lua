@@ -38,5 +38,5 @@ local test_files = { "arithmetic.lua"
                    }
 
 for _,file in ipairs(test_files) do
-   pcall(dofile, file)
+   dofile(file)
 end
