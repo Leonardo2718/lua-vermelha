@@ -18,17 +18,15 @@
 ################################################################################
 
 CXX?=g++
-LUAV?=../../luav
 
 LUA_DIR?=../../lua
 VERMELHA_DIR?=../../vermelha
 JITBUILDER_DIR?=../../omr/jitbuilder/release
 
-test: compile_test initcounter_test
+test: compile_test initcounter_test jitflags_test
 	./compile_test
 	./initcounter_test
-	$(LUAV) compile_test.lua
-	$(LUAV) initcounter_test.lua
+	./jitflags_test
 
 %_test: %_test.cpp
 	$(CXX) $< -I$(LUA_DIR) -L$(LUA_DIR) -L$(VERMELHA_DIR) -L$(JITBUILDER_DIR) -llua -lvermelha -ljitbuilder -ldl -o $@

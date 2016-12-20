@@ -25,9 +25,17 @@ extern "C" {
 #include "lualib.h"
 }
 
+#define  SCRIPT "return 3"
+
 int main() {
    lua_State* L = luaL_newstate();
-   assert(100 == lua_initcallcounter(L));
+   int rc = luaL_loadstring(L, SCRIPT);
+   assert(LUA_OK == rc);
+   assert(LUA_NOJITFLAGS == lua_checkjitflags(L, -1, -1)); // check all flags
+   lua_setjitflags(L, -1, LUA_JITBLACKLIST);
+   assert(LUA_JITBLACKLIST == lua_checkjitflags(L, -1, -1));
+   lua_clearjitflags(L, -1, LUA_JITBLACKLIST);
+   assert(LUA_NOJITFLAGS == lua_checkjitflags(L, -1, -1));
    lua_close(L);
    return 0;
 }
