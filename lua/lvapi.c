@@ -5,7 +5,7 @@
 
 #include "luav.h"
 #include "lvapi.h"
-#include "lvermelha.h"
+#include "lvjit.h"
 
 static Proto* getfuncproto(lua_State* L, int index) {
    const void* f = lua_topointer(L, index);

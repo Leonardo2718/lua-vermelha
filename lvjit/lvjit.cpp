@@ -16,7 +16,7 @@
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
  ******************************************************************************/
 
-// vermelha headers
+// Lua Vermelha headers
 #include "luavm.hpp"
 #include "LuaTypeDictionary.hpp"
 #include "LuaFunctionBuilder.hpp"

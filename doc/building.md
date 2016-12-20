@@ -4,7 +4,7 @@ The source code for each of these components is in a different sub-directory:
 
 - `lua/` contains the modified Lua VM
 - `omr/` is a git submodule containing the source code for Eclipse OMR and JitBuilder
-- `vermelha/` contains the JIT compiler
+- `lvjit/` contains the JIT compiler
 
 The build system for Lua Vermelha was designed to support different consumption
 strategies. The following explains how to build each component.
@@ -47,7 +47,7 @@ The following phony targets are provided by the JIT Makefile to build the
 different binaries:
 
 * `staticlib` (`default`) to build the JIT as a static archive
-* `vermelhaobj` to build the JIT as an object file
+* `lvjitobj` to build the JIT as an object file
 
 When building the JIT, the `LUA_C_LINKAGE` macro must be defined if the VM
 is compiled as C code. This ensures that no name-mangling issues occur when
@@ -67,11 +67,11 @@ specified when building the JIT:
 | `LD_FLAGS_EXTRA`     | (empty)           | Extra flags to pass to the linker |
 | `ARCH`               | `x` (for x86)     | Main architecture      |
 | `SUBARCH`            | `amd64`           | Sub-architecture       |
-| `STATICLIB_NAME`     | `libvermelha.a`   | Name of generated JIT static library |
-| `VERMELHAOBJ_NAME`   | `vermelha.o`      | Name of generated JIT object file |
+| `STATICLIB_NAME`     | `liblvjit.a`      | Name of generated JIT static library |
+| `LVJITOBJ_NAME`      | `lvjit.o`         | Name of generated JIT object file |
 | `BIN_DIR`            | `$(PWD)`          | Target directory for generated binaries |
 | `STATICLIB_DEST`     | `$(BIN_DIR)`      | Target directory for generated JIT static library |
-| `VERMELHAOBJ_DEST`   | `$(BIN_DIR)`      | Target directory for generated JIT object file |
+| `LVJITOBJ_DEST`      | `$(BIN_DIR)`      | Target directory for generated JIT object file |
 | `OBJS_DIR`           | `$(BIN_DIR)/objs` | Target directory for intermediate object files |
 | `LUA_DIR`            | `../`             | Directory containing the Lua VM directory |
 | `OMR_DIR`            | `../omr`          | Directory containing Eclipse OMR source code |
@@ -114,7 +114,7 @@ by a C++ compiler) and then linked into a C application.
 A simple linking command can be (assuming there is a `lua.o`):
 
 ```sh
-$ g++ lua/lua.o lua/liblua.a vermelha/libvermelha.a omr/jitbuilder/release/libjitbuilder.a -ldl -lm -Wl,-E -lreadline
+$ g++ lua/lua.o lua/liblua.a lvjit/liblvjit.a omr/jitbuilder/release/libjitbuilder.a -ldl -lm -Wl,-E -lreadline
 ```
 
 ## Complete examples
@@ -133,10 +133,10 @@ $ cd ../omr
 $ make -f run_configure.mk SPEC=linux_x86-64 OMRGLUE=./example/glue
 $ cd jitbuilder
 $ make -j4 CXX="g++" PLATFORM=amd64-linux64-gcc
-$ cd ../../vermelha
+$ cd ../../lvjit
 $ make -j4 staticlib CXX="g++" CXX_FLAGS_EXTRA="-fpermissive -DLUA_C_LINKAGE -O3 -g"
 $ cd ../
-$ g++ lua/lua.o lua/liblua.a vermelha/libvermelha.a omr/jitbuilder/release/libjitbuilder.a -ldl -lm -Wl,-E -lreadline
+$ g++ lua/lua.o lua/liblua.a lvjit/liblvjit.a omr/jitbuilder/release/libjitbuilder.a -ldl -lm -Wl,-E -lreadline
 ```
 
 Alternatively, with the JIT as an object file
@@ -149,10 +149,10 @@ $ cd ../omr
 $ make -f run_configure.mk SPEC=linux_x86-64 OMRGLUE=./example/glue
 $ cd jitbuilder
 $ make -j4 CXX="g++" PLATFORM=amd64-linux64-gcc
-$ cd ../../vermelha
-$ make -j4 vermelhaobj CXX="g++" CXX_FLAGS_EXTRA="-fpermissive -DLUA_C_LINKAGE -O3 -g"
+$ cd ../../lvjit
+$ make -j4 lvjitobj CXX="g++" CXX_FLAGS_EXTRA="-fpermissive -DLUA_C_LINKAGE -O3 -g"
 $ cd ../
-$ g++ lua/lua.o lua/liblua.a vermelha/vermelha.o omr/jitbuilder/release/libjitbuilder.a -ldl -lm -Wl,-E -lreadline
+$ g++ lua/lua.o lua/liblua.a lvjit/lvjit.o omr/jitbuilder/release/libjitbuilder.a -ldl -lm -Wl,-E -lreadline
 ```
 
 ## Top-level Makefile
@@ -170,10 +170,10 @@ A build can be customized by specifying the following variables:
 | `LUAV`           | `luav`                  | Name of the final application binary     |
 | `LUA_APP`        | `lua.o`                 | Name of application frontend object file |
 | `LUA_LIB`        | `liblua.a`              | Name of Lua VM static library            |
-| `VERMELHA_LIB`   | `libvermelha.a`         | Name of Lua Vermelha JIT static library  |
+| `LVJIT_LIB`      | `liblvjit.a`            | Name of Lua Vermelha JIT static library  |
 | `JITBUILDER_LIB` | `libjitbuilder.a`       | Name of JitBuilder static library        |
 | `LUA_DIR`        | `$(PWD)/lua`            | Directory containing Lua VM source code  |
-| `VERMELHA_DIR`   | `$(PWD)/vermelha`       | Directory containing JIT source code     |
+| `LVJIT_DIR`      | `$(PWD)/lvjit`          | Directory containing JIT source code     |
 | `JITBUILDER_DIR` | `$(PWD)/omr/jitbuilder` | Directory containing JitBuilder source code |
 
 The possible values of `BUILD_CONFIG` specify the kind of built to produce:
@@ -191,5 +191,5 @@ $ make -j4
 The following produce a debug build of `luav` with the JIT as an object file:
 
 ```sh
-$ make -j4 VERMELHA_LIB=vermelha.o BUILD_CONFIG=debug
+$ make -j4 LVJIT_LIB=lvjit.o BUILD_CONFIG=debug
 ```

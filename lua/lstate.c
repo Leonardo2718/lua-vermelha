@@ -27,7 +27,7 @@
 #include "ltable.h"
 #include "ltm.h"
 
-#include "lvermelha.h"
+#include "lvjit.h"
 
 #if !defined(LUAI_GCPAUSE)
 #define LUAI_GCPAUSE	200  /* 200% */

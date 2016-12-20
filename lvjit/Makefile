@@ -25,9 +25,9 @@ MKDIR?= mkdir -p
 ARCH?= x
 SUBARCH?= amd64
 
-STATICLIB_NAME?= libvermelha.a
-VERMELHAOBJ_NAME?=v ermelha.o
-SHAREDLIB_NAME?= libvermelha.so
+STATICLIB_NAME?= liblvjit.a
+LVJITOBJ_NAME?= lvjit.o
+SHAREDLIB_NAME?= liblvjit.so
 
 CXX_FLAGS= -std=c++0x -fno-rtti -W -Wall -Wextra -fPIC $(CXX_FLAGS_EXTRA) $(addprefix -I,$(IPATH))
 
@@ -35,7 +35,7 @@ CXX_FLAGS= -std=c++0x -fno-rtti -W -Wall -Wextra -fPIC $(CXX_FLAGS_EXTRA) $(addp
 
 BIN_DIR?= $(PWD)
 STATICLIB_DEST?= $(BIN_DIR)
-VERMELHAOBJ_DEST?= $(BIN_DIR)
+LVJITOBJ_DEST?= $(BIN_DIR)
 SHAREDLIB_DEST?= $(BIN_DIR)
 OBJS_DIR?= $(BIN_DIR)/objs
 
@@ -59,16 +59,16 @@ IPATH= $(LUA_DIR) $(JITBUILDER_HEADERS) $(JITBUILDER_SUBARCH_DIR) $(JITBUILDER_A
 SOURCE_FILES= \
 	LuaTypeDictionary.cpp \
 	LuaFunctionBuilder.cpp \
-	lvermelha.cpp
+	lvjit.cpp
 
 OBJECT_FILES= $(addprefix $(OBJS_DIR)/, $(subst .cpp,.o,$(SOURCE_FILES)))
 STATICLIB_PATH= $(STATICLIB_DEST)/$(STATICLIB_NAME)
-VERMELHAOBJ_PATH= $(VERMELHAOBJ_DEST)/$(VERMELHAOBJ_NAME)
+LVJITOBJ_PATH= $(LVJITOBJ_DEST)/$(LVJITOBJ_NAME)
 SHAREDLIB_PATH= $(SHAREDLIB_DEST)/$(SHAREDLIB_NAME)
 
 # targets
 
-.PHONY: default staticlib vermelhaobj sharedlib clean cleanall
+.PHONY: default staticlib lvjitobj sharedlib clean cleanall
 
 default: staticlib
 
@@ -77,9 +77,9 @@ $(STATICLIB_NAME): $(STATICLIB_PATH)
 $(STATICLIB_PATH): $(OBJECT_FILES)
 	$(AR) -r $@ $(OBJECT_FILES)
 
-vermelhaobj: $(VERMELHAOBJ_PATH)
-$(VERMELHAOBJ_NAME): $(VERMELHAOBJ_PATH)
-$(VERMELHAOBJ_PATH): $(OBJECT_FILES)
+lvjitobj: $(LVJITOBJ_PATH)
+$(LVJITOBJ_NAME): $(LVJITOBJ_PATH)
+$(LVJITOBJ_PATH): $(OBJECT_FILES)
 	$(LD) -Ur -o $@ $(OBJECT_FILES) $(LD_FLAGS_EXTRA)
 
 sharedlib: $(SHAREDLIB_PATH)
@@ -97,4 +97,4 @@ clean:
 	rm -f $(OBJECT_FILES)
 
 cleanall:
-	rm -f $(OBJECT_FILES) $(STATICLIB_PATH) $(SHAREDLIB_PATH) $(VERMELHAOBJ_PATH)
+	rm -f $(OBJECT_FILES) $(STATICLIB_PATH) $(SHAREDLIB_PATH) $(LVJITOBJ_PATH)

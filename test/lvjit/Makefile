@@ -20,7 +20,7 @@
 CXX?=g++
 
 LUA_DIR?=../../lua
-VERMELHA_DIR?=../../vermelha
+LVJIT_DIR?=../../lvjit
 JITBUILDER_DIR?=../../omr/jitbuilder/release
 
 test: compile_test initcounter_test jitflags_test
@@ -29,7 +29,7 @@ test: compile_test initcounter_test jitflags_test
 	./jitflags_test
 
 %_test: %_test.cpp
-	$(CXX) $< -I$(LUA_DIR) -L$(LUA_DIR) -L$(VERMELHA_DIR) -L$(JITBUILDER_DIR) -llua -lvermelha -ljitbuilder -ldl -o $@
+	$(CXX) $< -I$(LUA_DIR) -L$(LUA_DIR) -L$(LVJIT_DIR) -L$(JITBUILDER_DIR) -llua -llvjit -ljitbuilder -ldl -o $@
 
 clean:
 	rm -f *_test

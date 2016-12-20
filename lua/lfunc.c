@@ -20,7 +20,7 @@
 #include "lmem.h"
 #include "lobject.h"
 #include "lstate.h"
-#include "lvermelha.h"
+#include "lvjit.h"
 
 
 

@@ -31,7 +31,7 @@
 #include "ltm.h"
 #include "lvm.h"
 
-#include "lvermelha.h"
+#include "lvjit.h"
 #include "lvapi.h"
 
 

@@ -3,8 +3,8 @@
 ** See Copyright Notice in lua.h
 */
 
-#ifndef lvermelha_h
-#define lvermelha_h
+#ifndef lvjit_h
+#define lvjit_h
 
 #include "lobject.h"
 
@@ -37,5 +37,5 @@ int luaJ_compile(Proto* p);
 */
 unsigned int luaJ_initcallcounter();
 
-#endif /* lvermelha_h */
+#endif /* lvjit_h */
 
