@@ -19,6 +19,9 @@
 // Lua Vermelha headers
 #include "LuaFunctionBuilder.hpp"
 
+// JitBuilder headers
+#include "ilgen/VirtualMachineState.hpp"
+
 // c libraries
 #include <math.h>
 #include <stdio.h>
@@ -885,6 +888,7 @@ bool Lua::FunctionBuilder::buildIL() {
                                 LoadIndirect("CallInfo", "func",
                                              Load("ci")))));
 
+   setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
 
    for (auto i = 0; i < instructionCount; ++i) {
@@ -1013,6 +1017,7 @@ bool Lua::FunctionBuilder::buildIL() {
       }
 
       if (nextBuilder) {
+         builder->setVMState(new OMR::VirtualMachineState{});
          builder->AddFallThroughBuilder(nextBuilder);
       }
    }
