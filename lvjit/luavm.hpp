@@ -46,6 +46,7 @@ extern "C" {
 #include "lua/lvm.h"
 #include "lua/lgc.h"
 #include "lua/ldebug.h"
+#include "lua/luav.h"
 #include "lua/lvjit.h"
 
 #ifdef LUA_C_LINKAGE

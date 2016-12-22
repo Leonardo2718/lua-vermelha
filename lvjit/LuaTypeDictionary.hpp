@@ -43,6 +43,7 @@ public:
       TR::IlType* Instruction;
       TR::IlType* TValue;
       TR::IlType* StkId;
+      TR::IlType* Proto;
       TR::IlType* LClosure;
       TR::IlType* UpVal;
       TR::IlType* CallInfo;

@@ -49,6 +49,12 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
 
    luaTypes.StkId = PointerTo("TValue"); // stack index
 
+   luaTypes.Proto = DEFINE_STRUCT(Proto);
+   DEFINE_FIELD(Proto, compiledcode, toIlType<void*>());
+   DEFINE_FIELD(Proto, jitflags, toIlType<decltype(Proto::jitflags)>());
+   DEFINE_FIELD(Proto, callcounter, toIlType<decltype(Proto::callcounter)>());
+   CLOSE_STRUCT(Proto);
+
    // struct LClosure
    luaTypes.LClosure = DEFINE_STRUCT(LClosure);
    DEFINE_FIELD(LClosure, next, pGCObject_t);           // ClosureHeader  CommonHeader

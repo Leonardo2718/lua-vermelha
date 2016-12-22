@@ -27,6 +27,7 @@
 local test_files = { "arithmetic.lua"
                    , "asserts.lua"
                    , "booleans.lua"
+                   , "call.lua"
                    , "comparisons.lua"
                    , "goto.lua"
                    , "loads.lua"

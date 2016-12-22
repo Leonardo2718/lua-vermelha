@@ -695,7 +695,17 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   NoType, 1,
                   types->toIlType<void*>());
 
+   DefineFunction("compiledbody", "0", "0", nullptr,
+                  NoType, 1,
+                  plua_State);
+
    // Lua VM functions to be called from JITed code
+
+   DefineFunction("luaD_precall", "ldo.c", "344", (void*)luaD_precall,
+                  Int32, 3,
+                  plua_State,
+                  luaTypes.StkId,
+                  Int32);
 
    DefineFunction("luaD_poscall", "ldo.c", "453", (void*)luaD_poscall,
                   Int32, 4,
@@ -703,6 +713,14 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   types->PointerTo(luaTypes.CallInfo),
                   luaTypes.StkId,
                   Int32);
+
+   DefineFunction("luaV_execute", "lvm.c", "790", (void*)luaV_execute,
+                  NoType, 1,
+                  plua_State);
+
+   DefineFunction("luaJ_compile", "lvjit.cpp", "53", (void*)luaJ_compile,
+                  Int32, 1,
+                  types->PointerTo(luaTypes.Proto));
 
    DefineFunction("luaF_close", "lfunc.c", "83", (void*)luaF_close,
                   NoType, 2,
@@ -880,13 +898,9 @@ bool Lua::FunctionBuilder::buildIL() {
    Store("ci", LoadIndirect("lua_State", "ci", Load("L")));         // ci = L->ci
    Store("base", LoadIndirect("CallInfo", "u.l.base", Load("ci"))); // base = ci->u.l.base
 
-   // cl = clLvalue(ci->func)
-   // cl = &(cast<GCUnion*>(ci->func->value_.gc)->cl.l)
-   Store("cl",
-         ConvertTo(typeDictionary()->PointerTo(luaTypes.LClosure),
-                   LoadIndirect("TValue", "value_", // pretend `value_` is really `value_.gc` because it's a union
+   Store("cl",jit_clLvalue(this,
                                 LoadIndirect("CallInfo", "func",
-                                             Load("ci")))));
+                                             Load("ci"))));
 
    setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
@@ -999,6 +1013,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_TESTSET:
          do_testset(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         break;
+      case OP_CALL:
+         do_call(builder, instruction);
          break;
       case OP_RETURN:
          do_return(builder, instruction);
@@ -1385,6 +1402,123 @@ bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::IlBuilde
    return true;
 }
 
+bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction instruction) {
+   // b = GETARG_B(i);
+   builder->Store("b",
+   builder->      ConstInt32(GETARG_B(instruction)));
+
+   // nresults = GETARG_C(i) - 1;
+   builder->Store("nresults",
+   builder->      Sub(
+   builder->          ConstInt32(GETARG_C(instruction)),
+   builder->          ConstInt32(1)));
+
+   // if (b != 0) L->top = ra+b;
+   TR::IlBuilder* settop = builder->OrphanBuilder();
+   builder->IfThen(&settop,
+   builder->       NotEqualTo(
+   builder->                  Load("b"),
+   builder->                  ConstInt32(0)));
+
+   settop->StoreIndirect("lua_State", "top",
+   settop->               Load("L"),
+   settop->               IndexAt(luaTypes.StkId,
+   settop->                   Load("ra"),
+   settop->                   Load("b")));
+
+   // if (luaD_precall(L, ra, nresults))
+   auto isCFunc = builder->Call("luaD_precall", 3,
+                  builder->     Load("L"),
+                  builder->     Load("ra"),
+                  builder->     Load("nresults"));
+
+   TR::IlBuilder* cFunc = builder->OrphanBuilder();
+   TR::IlBuilder* luaFunc = builder->OrphanBuilder();
+   builder->IfThenElse(&cFunc, &luaFunc, isCFunc);
+
+   // if (nresults >= 0) L->top = ci->top;
+   // Protect((void)0);
+   TR::IlBuilder* adjusttop = cFunc->OrphanBuilder();
+   cFunc->IfThen(&adjusttop,
+   cFunc->       Or(
+   cFunc->          GreaterThan(
+   cFunc->                      Load("nresults"),
+   cFunc->                      ConstInt32(0)),
+   cFunc->          EqualTo(
+   cFunc->                  Load("nresults"),
+   cFunc->                  ConstInt32(0))));
+
+   adjusttop->StoreIndirect("lua_State", "top",
+   adjusttop->              Load("L"),
+   adjusttop->              LoadIndirect("CallInfo", "top",
+   adjusttop->                           Load("ci")));
+
+   jit_Protect(cFunc);
+
+   // p = getproto(L->ci->func);
+   luaFunc->Store("p",
+   luaFunc->      LoadIndirect("LClosure", "p",jit_clLvalue(luaFunc,
+   luaFunc->                   LoadIndirect("CallInfo", "func",
+   luaFunc->                                LoadIndirect("lua_State", "ci",
+   luaFunc->                                             Load("L"))))));
+
+   // f (!(p->jitflags & LUA_JITBLACKLIST) &&  p->callcounter == 0 &&  p->compiledcode == NULL)
+   auto notblacklisted =
+   luaFunc->EqualTo(
+   luaFunc->        And(
+   luaFunc->            LoadIndirect("Proto", "jitflags",
+   luaFunc->                         Load("p")),
+   luaFunc->            ConstInt32(LUA_JITBLACKLIST)),
+   luaFunc->        ConstInt32(0));
+   auto callcounter0 =
+   luaFunc->EqualTo(
+   luaFunc->        LoadIndirect("Proto", "callcounter",
+   luaFunc->                     Load("p")),
+   luaFunc->        ConstInt16(0));
+   auto isnotcompiled =
+   luaFunc->EqualTo(
+   luaFunc->        LoadIndirect("Proto", "compiledcode",
+   luaFunc->                     Load("p")),
+   luaFunc->        ConstInt32(0));
+   auto readycompile =
+   luaFunc->And(notblacklisted,
+   luaFunc->    And(callcounter0, isnotcompiled));
+   TR::IlBuilder* trycompile = luaFunc->OrphanBuilder();
+   luaFunc->IfThen(&trycompile, readycompile);
+
+   // luaJ_compile(p);
+   trycompile->Call("luaJ_compile", 1,
+   trycompile->     Load("p"));
+
+   // LUAJ_BLACKLIST(p); // p->jitflags = p->jitflags | LUA_JITBLACKLIST
+   trycompile->StoreIndirect("Proto", "jitflags",
+   trycompile->              Load("p"),
+   trycompile->              Or(
+   trycompile->                 LoadIndirect("Proto", "jitflags",
+   trycompile->                           Load("p")),
+   trycompile->                 ConstInt32(LUA_JITBLACKLIST)));
+
+   // if (p->compiledcode) { p->compiledcode(L); }
+   TR::IlBuilder* callcompiled = luaFunc->OrphanBuilder();
+   TR::IlBuilder* callinterpreter = luaFunc->OrphanBuilder();
+   luaFunc->IfThenElse(&callcompiled, &callinterpreter,
+   luaFunc->           NotEqualTo(
+   luaFunc->           LoadIndirect("Proto", "compiledcode",
+   luaFunc->                        Load("p")),
+   luaFunc->           ConstInt32(0)));
+
+   callcompiled->ComputedCall("compiledbody", 2,
+   callcompiled->             LoadIndirect("Proto", "compiledcode",
+   callcompiled->                          Load("p")),
+   callcompiled->             Load("L"));
+
+   // else { luaV_execute(L); }
+   callinterpreter->Call("luaV_execute", 1,
+   callinterpreter->     Load("L"));
+
+   return true;
+}
+
 bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction instruction) {
    // b = GETARG_B(i)
    auto arg_b = GETARG_B(instruction);
@@ -1479,7 +1613,13 @@ TR::IlValue* Lua::FunctionBuilder::jit_RK(TR::BytecodeBuilder* builder, int arg)
                      builder->        ConstInt32(arg));
 }
 
-void Lua::FunctionBuilder::jit_Protect(TR::BytecodeBuilder* builder) {
+TR::IlValue* Lua::FunctionBuilder::jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func) {
+   // &(cast<GCUnion*>(func->value_.gc)->cl.l)
+   return builder->ConvertTo(typeDictionary()->PointerTo(luaTypes.LClosure),
+          builder->          LoadIndirect("TValue", "value_", func));  // pretend `value_` is really `value_.gc` because it's a union
+}
+
+void Lua::FunctionBuilder::jit_Protect(TR::IlBuilder* builder) {
    builder->Store("base",
    builder->      LoadIndirect("CallInfo", "u.l.base",
    builder->                   Load("ci")));

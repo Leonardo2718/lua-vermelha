@@ -78,6 +78,7 @@ public:
     bool do_test(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
     bool do_testset(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
 
+    bool do_call(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction);
@@ -96,7 +97,9 @@ public:
 
     TR::IlValue* jit_RK(TR::BytecodeBuilder* builder, int arg); // equivalent to RKB and RKC in `lua/lvm.c`
     
-    void jit_Protect(TR::BytecodeBuilder* builder); // updates local copies of values in case of stack reallocation
+    TR::IlValue* jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func);
+
+    void jit_Protect(TR::IlBuilder* builder); // updates local copies of values in case of stack reallocation
 
 private:
     Proto* prototype;
