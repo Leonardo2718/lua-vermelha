@@ -19,6 +19,8 @@
 #include "LuaTypeDictionary.hpp"
 #include "luavm.hpp"
 
+#define DEFINE_FIELD_T(type, field) DEFINE_FIELD(type, field, toIlType<decltype(type::field)>())
+
 Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    // common lua types
    luaTypes.lu_byte         = toIlType<lu_byte>();
@@ -33,9 +35,6 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    auto pUpVal_t = toIlType<void*>();
    auto pLuaLongjmp = toIlType<void*>();
    auto lua_Hook_t = toIlType<void*>();          // is actually `void(*)(lua_State*, lua_Debug*)
-   auto PtrDiff_t = toIlType<ptrdiff_t>();       // is actually `ptrdiff_t`
-   auto Sig_Atomic_t = toIlType<sig_atomic_t>(); // is actually `sig_atomic_t`
-   auto l_signalT_t = Sig_Atomic_t;
    auto pInstruction = PointerTo(luaTypes.Instruction);
    auto pProto_t = toIlType<void*>();
 
@@ -44,16 +43,16 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    // struct TValue
    luaTypes.TValue = DEFINE_STRUCT(TValue);
    DEFINE_FIELD(TValue, value_, Int64); // this should actually be a union
-   DEFINE_FIELD(TValue, tt_, toIlType<decltype(TValue::tt_)>());
+   DEFINE_FIELD_T(TValue, tt_);
    CLOSE_STRUCT(TValue);
 
    luaTypes.StkId = PointerTo("TValue"); // stack index
 
    luaTypes.Proto = DEFINE_STRUCT(Proto);
-   DEFINE_FIELD(Proto, sizep, toIlType<decltype(Proto::sizep)>());
+   DEFINE_FIELD_T(Proto, sizep);
    DEFINE_FIELD(Proto, compiledcode, toIlType<void*>());
-   DEFINE_FIELD(Proto, jitflags, toIlType<decltype(Proto::jitflags)>());
-   DEFINE_FIELD(Proto, callcounter, toIlType<decltype(Proto::callcounter)>());
+   DEFINE_FIELD_T(Proto, jitflags);
+   DEFINE_FIELD_T(Proto, callcounter);
    CLOSE_STRUCT(Proto);
 
    // struct LClosure
@@ -71,7 +70,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
 
    luaTypes.UpVal = DEFINE_STRUCT(UpVal);
    DEFINE_FIELD(UpVal, v, PointerTo(luaTypes.TValue));                    // points to stack or to its own value
-   DEFINE_FIELD(UpVal, refcount, toIlType<decltype(UpVal::refcount)>());  // reference counter
+   DEFINE_FIELD_T(UpVal, refcount);                                       // reference counter
 /*
    union {
       struct {                                                            // (when open)
@@ -109,7 +108,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
        } c;
    } u;
 */
-   DEFINE_FIELD(CallInfo, extra, PtrDiff_t);
+   DEFINE_FIELD_T(CallInfo, extra);
    DEFINE_FIELD(CallInfo, nresults, Int16);
    DEFINE_FIELD(CallInfo, callstatus, luaTypes.lu_byte);
    CLOSE_STRUCT(CallInfo);
@@ -120,7 +119,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    DEFINE_FIELD(lua_State, next, pGCObject_t);             // CommonHeader
    DEFINE_FIELD(lua_State, tt, luaTypes.lu_byte);          //      |
    DEFINE_FIELD(lua_State, marked, luaTypes.lu_byte);      //      |
-   DEFINE_FIELD(lua_State, nci, toIlType<decltype(lua_State::nci)>());          // number of items in `ci` list (should be uint16_t ?)
+   DEFINE_FIELD_T(lua_State, nci);                         // number of items in `ci` list
    DEFINE_FIELD(lua_State, status, luaTypes.lu_byte);
    DEFINE_FIELD(lua_State, top, luaTypes.StkId);           // first free slot in the stack
    DEFINE_FIELD(lua_State, l_G, pGlobalState_t);
@@ -134,13 +133,13 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    DEFINE_FIELD(lua_State, errorJmp, pLuaLongjmp);         // current error recover point
    DEFINE_FIELD(lua_State, base_ci, luaTypes.CallInfo);    // CallInfo for first level (C calling Lua)
    DEFINE_FIELD(lua_State, hook, lua_Hook_t);              // (should be `volatile` ?)
-   DEFINE_FIELD(lua_State, errfunc, PtrDiff_t);
-   DEFINE_FIELD(lua_State, stacksize, toIlType<decltype(lua_State::stacksize)>());
-   DEFINE_FIELD(lua_State, basehookcount, toIlType<decltype(lua_State::basehookcount)>());
-   DEFINE_FIELD(lua_State, hookcount, toIlType<decltype(lua_State::hookcount)>());
-   DEFINE_FIELD(lua_State, nny, toIlType<decltype(lua_State::nny)>());          // number of non-yieldable calls in stack
-   DEFINE_FIELD(lua_State, nCcalls, toIlType<decltype(lua_State::nCcalls)>());  // number of nested C calls
-   DEFINE_FIELD(lua_State, hookmask, l_signalT_t);
+   DEFINE_FIELD_T(lua_State, errfunc);
+   DEFINE_FIELD_T(lua_State, stacksize);
+   DEFINE_FIELD_T(lua_State, basehookcount);
+   DEFINE_FIELD_T(lua_State, hookcount);
+   DEFINE_FIELD_T(lua_State, nny);                         // number of non-yieldable calls in stack
+   DEFINE_FIELD_T(lua_State, nCcalls);                     // number of nested C calls
+   DEFINE_FIELD_T(lua_State, hookmask);
    DEFINE_FIELD(lua_State, allowhook, luaTypes.lu_byte);
    CLOSE_STRUCT(lua_State);
 }
