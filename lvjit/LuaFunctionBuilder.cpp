@@ -1525,6 +1525,19 @@ bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction i
    builder->Store("b",
    builder->      ConstInt32(arg_b));
 
+   // if (cl->p->sizep > 0) luaF_close(L, base);
+   auto close_upvals = builder->OrphanBuilder();
+   builder->IfThen(&close_upvals,
+   builder->       GreaterThan(
+   builder->                   LoadIndirect("Proto", "sizep",
+   builder->                                LoadIndirect("LClosure", "p",
+   builder->                                             Load("cl"))),
+   builder->                   ConstInt32(0)));
+
+   close_upvals->Call("luaF_close", 2,
+   close_upvals->     Load("L"),
+   close_upvals->     Load("base"));
+
    // b = luaD_poscall(L, ci, ra, (b != 0 ? b - 1 : cast_int(L->top - ra)))
    builder->Store("b",
    builder->      Call("luaD_poscall", 4,

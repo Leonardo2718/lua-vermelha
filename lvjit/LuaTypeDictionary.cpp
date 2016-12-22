@@ -50,6 +50,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.StkId = PointerTo("TValue"); // stack index
 
    luaTypes.Proto = DEFINE_STRUCT(Proto);
+   DEFINE_FIELD(Proto, sizep, toIlType<decltype(Proto::sizep)>());
    DEFINE_FIELD(Proto, compiledcode, toIlType<void*>());
    DEFINE_FIELD(Proto, jitflags, toIlType<decltype(Proto::jitflags)>());
    DEFINE_FIELD(Proto, callcounter, toIlType<decltype(Proto::callcounter)>());
