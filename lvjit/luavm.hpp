@@ -42,6 +42,7 @@ extern "C" {
 #include "lua/ltm.h"
 #include "lua/lstate.h"
 #include "lua/ltable.h"
+#include "lua/ltm.h"
 #include "lua/ldo.h"
 #include "lua/lvm.h"
 #include "lua/lgc.h"

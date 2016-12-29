@@ -19,6 +19,8 @@
 #include "LuaTypeDictionary.hpp"
 #include "luavm.hpp"
 
+#include <type_traits>
+
 #define DEFINE_FIELD_T(type, field) DEFINE_FIELD(type, field, toIlType<decltype(type::field)>())
 
 Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
@@ -28,6 +30,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.lua_Unsigned    = luaTypes.lua_Integer;
    luaTypes.lua_Number      = toIlType<lua_Number>();
    luaTypes.Instruction     = toIlType<Instruction>();
+   luaTypes.TMS             = toIlType<std::underlying_type<TMS>::type>();
 
    // placeholder and convenience types
    auto pGCObject_t = toIlType<void*>();
@@ -38,13 +41,42 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    auto pInstruction = PointerTo(luaTypes.Instruction);
    auto pProto_t = toIlType<void*>();
 
-   // lobject.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   // struct TValue ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   // struct TValue
+   /*
+   The struct `TValue` is a tagged union. Because JitBuilder does not currently
+   support, we need a little bit of "type magic" to be able to load and store
+   values into the union correctly.
+
+   We define a different struct for each possible instance of the tagged union.
+   Then we can load the raw memory using whatever type is provided.
+
+   Because there is no generic type that can naturally represent memory with no
+   type associated to it, the "default" (typeless) struct implementation assumes
+   the union has an int64 type.
+   */
+
+   // generic TValue
    luaTypes.TValue = DEFINE_STRUCT(TValue);
-   DEFINE_FIELD(TValue, value_, Int64); // this should actually be a union
+   static_assert(sizeof(TValue::value_) == sizeof(void*), "generic type representing the union and the union itself are not the same size");
+   //DEFINE_FIELD(TValue, value_, toIlType<void*>());
+   DEFINE_FIELD(TValue, value_, Int64);
    DEFINE_FIELD_T(TValue, tt_);
    CLOSE_STRUCT(TValue);
+
+   // floating point (number) TValue
+   DefineStruct("TValue_i");
+   DefineField("TValue_i", "value_", toIlType<decltype(Value::i)>(), offsetof(TValue, value_.i));
+   DefineField("TValue_i", "tt_", toIlType<decltype(TValue::tt_)>(), offsetof(TValue, tt_));
+   CloseStruct("TValue_i");
+
+   // floating point (number) TValue
+   DefineStruct("TValue_n");
+   DefineField("TValue_n", "value_", toIlType<decltype(Value::n)>(), offsetof(TValue, value_.n));
+   DefineField("TValue_n", "tt_", toIlType<decltype(TValue::tt_)>(), offsetof(TValue, tt_));
+   CloseStruct("TValue_n");
+
+   // lobject.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    luaTypes.StkId = PointerTo("TValue"); // stack index
 

@@ -48,6 +48,7 @@ public:
       TR::IlType* UpVal;
       TR::IlType* CallInfo;
       TR::IlType* lua_State;
+      TR::IlType* TMS;
    };
    
    TypeDictionary();
