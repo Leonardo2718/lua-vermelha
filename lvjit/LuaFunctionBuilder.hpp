@@ -101,6 +101,11 @@ public:
 
     void jit_Protect(TR::IlBuilder* builder); // updates local copies of values in case of stack reallocation
 
+    TR::IlValue* jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, int type);
+    TR::IlValue* jit_masktag(TR::IlBuilder* builder, TR::IlValue* value, int type);
+
+    TR::IlValue* jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value);
+
 private:
     Proto* prototype;
     TypeDictionary::LuaTypes luaTypes;

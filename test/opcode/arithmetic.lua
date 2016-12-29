@@ -59,6 +59,9 @@ local function op_not(x)     return not x end
 -- run tests
 assert_compile(op_add, "op_add")
 assert_equal(7, op_add(3,4), "op_add(3,4)")
+assert_equal(7.3, op_add(3.3,4), "op_add(3.3,4)")
+assert_equal(7.4, op_add(3,4.4), "op_add(3,4.4)")
+assert_equal(7.7, op_add(3.3,4.4), "op_add(3.3,4.4)")
 
 assert_compile(op_sub, "op_sub")
 assert_equal(-1, op_sub(3,4), "op_sub(3,4)")
