@@ -766,11 +766,6 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   plua_State,
                   luaTypes.Instruction);
 
-   DefineFunction("vm_add", __FILE__, "0", (void*)vm_add,
-                  luaTypes.StkId, 2,
-                  plua_State,
-                  luaTypes.Instruction);
-
    DefineFunction("vm_sub", __FILE__, "0", (void*)vm_sub,
                   luaTypes.StkId, 2,
                   plua_State,
