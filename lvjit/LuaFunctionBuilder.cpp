@@ -185,31 +185,6 @@ StkId vm_newtable(lua_State* L, Instruction i) {
    return base;
 }
 
-StkId vm_add(lua_State* L, Instruction i) {
-   // prologue
-   CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
-   StkId base = ci->u.l.base;
-   StkId ra = RA(i);
-
-   // main body
-   TValue *rb = RKB(i);
-   TValue *rc = RKC(i);
-   lua_Number nb; lua_Number nc;
-   if (ttisinteger(rb) && ttisinteger(rc)) {
-     lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
-     setivalue(ra, intop(+, ib, ic));
-   }
-   else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
-     setfltvalue(ra, luai_numadd(L, nb, nc));
-   }
-   else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_ADD)); }
-
-   // epilogue
-   return base;
-}
-
 StkId vm_sub(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
