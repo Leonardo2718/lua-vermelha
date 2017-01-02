@@ -233,27 +233,6 @@ StkId vm_pow(lua_State* L, Instruction i) {
    return base;
 }
 
-StkId vm_div(lua_State* L, Instruction i) {
-   // prologue
-   CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
-   StkId base = ci->u.l.base;
-   StkId ra = RA(i);
-
-   // main body
-   TValue *rb = RKB(i);
-   TValue *rc = RKC(i);
-   lua_Number nb; lua_Number nc;
-   if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
-     setfltvalue(ra, luai_numdiv(L, nb, nc));
-   }
-   else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_DIV)); }
-
-   // epilogue
-   return base;
-}
-
 StkId vm_idiv(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -722,11 +701,6 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.Instruction);
 
    DefineFunction("vm_pow", __FILE__, "0", (void*)vm_pow,
-                  luaTypes.StkId, 2,
-                  plua_State,
-                  luaTypes.Instruction);
-
-   DefineFunction("vm_div", __FILE__, "0", (void*)vm_div,
                   luaTypes.StkId, 2,
                   plua_State,
                   luaTypes.Instruction);
@@ -1280,10 +1254,36 @@ bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction inst
 }
 
 bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Store("base",
-   builder->      Call("vm_div", 2,
-   builder->           Load("L"),
-   builder->           ConstInt32(instruction)));
+   // rb = RKB(i);
+   // rc = RKC(i);
+   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));
+   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));
+
+   // if (ttisnumber(rb) && ttisnumber(rc))
+   auto isrbnum = jit_masktag(builder, builder->Load("rb"), LUA_TNUMBER);
+   auto isrcnum = jit_masktag(builder, builder->Load("rc"), LUA_TNUMBER);
+
+   auto addnums = builder->OrphanBuilder();
+   auto notnums = builder->OrphanBuilder();
+   builder->IfThenElse(&addnums, &notnums, builder->And(isrbnum, isrcnum));
+
+   // setfltvalue(ra, luai_numdiv(L,tonumber(rb), tonumber(rc)));
+   auto numsum = addnums->Div(
+                 jit_tonumber(addnums, addnums->Load("rb")),
+                 jit_tonumber(addnums, addnums->Load("rc")));
+   addnums->StoreIndirect("TValue_n", "value_",
+   addnums->              Load("ra"),
+                          numsum);
+   addnums->StoreIndirect("TValue_n", "tt_", addnums->Load("ra"), addnums->Const(LUA_TNUMFLT));
+
+   // else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_DIV)); }
+   notnums->Call("luaT_trybinTM", 5,
+   notnums->     Load("L"),
+   notnums->     Load("rb"),
+   notnums->     Load("rc"),
+   notnums->     Load("ra"),
+   notnums->     Const(TM_DIV));
+   jit_Protect(notnums);
 
    return true;
 }
