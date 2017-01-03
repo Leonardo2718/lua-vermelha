@@ -1,0 +1,22 @@
+language: cpp
+os: linux
+sudo: required
+dist: trusty
+
+addons:
+  apt:
+    sources:
+    # add PPAs with more up-to-date toolchains
+    - ubuntu-toolchain-r-test
+    # - llvm-toolchain-precise-3.8
+    packages:
+    # install toolchains
+    - gcc-5
+    - g++-5
+    # - clang-3.8
+
+compiler: gcc-5
+
+install: true
+
+script: cd omr && make -f run_configure.mk SPEC=linux_x86-64 OMRGLUE=./example/glue && cd .. && make && make test
