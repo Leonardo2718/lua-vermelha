@@ -100,6 +100,15 @@ cleanall:
 	cd $(LVJIT_DIR) && $(MAKE) cleanall
 	cd $(JITBUILDER_DIR) && $(MAKE) clean
 
+# test rules
+
+.PHONY: test
+
+test:
+	cd test/lvjit && make
+	cd test/control && ../../$(LUAV) all.lua
+	cd test/opcode && ../../$(LUAV) all.lua
+
 # lua patch
 
 # version of lua to diff against

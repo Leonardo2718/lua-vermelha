@@ -1,5 +1,7 @@
 # Lua Vermelha
 
+[![Build Status](https://travis-ci.org/Leonardo2718/lua-vermelha.svg?branch=devel)](https://travis-ci.org/Leonardo2718/lua-vermelha)
+
 Lua Vermelha is an implementation of [Lua](http://www.lua.org) 5.3 with a
 Just-In-Time (JIT) compiler built from
 [Eclipse OMR](https://github.com/eclipse/omr) compiler technology.
