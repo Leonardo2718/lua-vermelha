@@ -883,11 +883,11 @@ bool Lua::FunctionBuilder::buildIL() {
    setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
 
-   for (auto i = 0; i < instructionCount; ++i) {
-      auto instruction = instructions[i];
-      auto builder = bytecodeBuilders[i];
-
-      auto nextBuilder = (i < instructionCount - 1) ? bytecodeBuilders[i + 1] : nullptr;
+   auto instructionIndex = GetNextBytecodeFromWorklist();
+   while (-1 != instructionIndex) {
+      auto instruction = instructions[instructionIndex];
+      auto builder = bytecodeBuilders[instructionIndex];
+      auto nextBuilder = (instructionIndex < instructionCount - 1) ? bytecodeBuilders[instructionIndex + 1] : nullptr;
 
       // ra = base + GETARG_A(i)
       auto arg_a = GETARG_A(instruction);
@@ -904,7 +904,7 @@ bool Lua::FunctionBuilder::buildIL() {
          do_loadk(builder, instruction);
          break;
       case OP_LOADBOOL:
-         do_loadbool(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         do_loadbool(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
          break;
       case OP_LOADNIL:
          do_loadnil(builder, instruction);
@@ -974,23 +974,23 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_JMP:
          do_jmp(builder, instruction);
-         builder->AddFallThroughBuilder(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]);
+         builder->AddFallThroughBuilder(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;
          break;
       case OP_EQ:
-         do_cmp("luaV_equalobj", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         do_cmp("luaV_equalobj", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
          break;
       case OP_LT:
-         do_cmp("luaV_lessthan", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         do_cmp("luaV_lessthan", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
          break;
       case OP_LE:
-         do_cmp("luaV_lessequal", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         do_cmp("luaV_lessequal", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
          break;
       case OP_TEST:
-         do_test(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         do_test(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
          break;
       case OP_TESTSET:
-         do_testset(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 2]), instruction);
+         do_testset(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
          break;
       case OP_CALL:
          do_call(builder, instruction);
@@ -1000,11 +1000,11 @@ bool Lua::FunctionBuilder::buildIL() {
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
          break;
       case OP_FORLOOP:
-         do_forloop(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]), instruction);
+         do_forloop(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]), instruction);
          break;
       case OP_FORPREP:
          do_forprep(builder, instruction);
-         builder->AddFallThroughBuilder(bytecodeBuilders[i + 1 + GETARG_sBx(instruction)]);
+         builder->AddFallThroughBuilder(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
          break;
       default:
@@ -1012,9 +1012,9 @@ bool Lua::FunctionBuilder::buildIL() {
       }
 
       if (nextBuilder) {
-         builder->setVMState(new OMR::VirtualMachineState{});
          builder->AddFallThroughBuilder(nextBuilder);
       }
+      instructionIndex = GetNextBytecodeFromWorklist();
    }
 
    return true;
