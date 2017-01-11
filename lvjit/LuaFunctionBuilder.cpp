@@ -839,13 +839,13 @@ bool Lua::FunctionBuilder::buildIL() {
          do_newtable(builder, instruction);
          break;
       case OP_ADD:
-         do_add(builder, instruction);
+         do_math(builder, instruction);
          break;
       case OP_SUB:
-         do_sub(builder, instruction);
+         do_math(builder, instruction);
          break;
       case OP_MUL:
-         do_mul(builder, instruction);
+         do_math(builder, instruction);
          break;
       case OP_MOD:
          do_mod(builder, instruction);
@@ -1070,166 +1070,101 @@ bool Lua::FunctionBuilder::do_newtable(TR::BytecodeBuilder* builder, Instruction
    return true;
 }
 
-bool Lua::FunctionBuilder::do_add(TR::BytecodeBuilder* builder, Instruction instruction) {
+bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction instruction) {
    // rb = RKB(i);
    // rc = RKC(i);
-   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));
+   TR::IlValue *rb = jit_RK(builder, GETARG_B(instruction));
+   TR::IlValue *rc = jit_RK(builder, GETARG_C(instruction));
 
    // if (ttisinteger(rb) && ttisinteger(rc))
-   auto isrbint = jit_checktag(builder, builder->Load("rb"), LUA_TNUMINT);
-   auto isrcint = jit_checktag(builder, builder->Load("rc"), LUA_TNUMINT);
+   auto isrbint = jit_checktag(builder, rb, LUA_TNUMINT);
+   auto isrcint = jit_checktag(builder, rc, LUA_TNUMINT);
 
-   auto addints = builder->OrphanBuilder();
+   auto ints = builder->OrphanBuilder();
    auto notints = builder->OrphanBuilder();
-   builder->IfThenElse(&addints, &notints, builder->And(isrbint, isrcint));
+   builder->IfThenElse(&ints, &notints,
+   builder->           And(isrbint, isrcint));
 
    // lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
-   // setivalue(ra, intop(+, ib, ic));
-   auto intsum = addints->Add(
-                 addints->    LoadIndirect("TValue_i", "value_",
-                 addints->                 Load("rb")),
-                 addints->    LoadIndirect("TValue_i", "value_",
-                 addints->                 Load("rc")));
-   addints->StoreIndirect("TValue_i", "value_",
-   addints->              Load("ra"),
-                          intsum);
-   addints->StoreIndirect("TValue_i", "tt_", addints->Load("ra"), addints->Const(LUA_TNUMINT));
+   // setivalue(ra, intop([+,-,*], ib, ic));
+   TR::IlValue *rbint = ints->LoadIndirect("TValue_i", "value_", rb);
+   TR::IlValue *rcint = ints->LoadIndirect("TValue_i", "value_", rc);
+   TR::IlValue *intresult = nullptr;
+   switch (GET_OPCODE(instruction)) {
+   case OP_ADD:
+      intresult = ints->Add(rbint, rcint);
+      break;
+   case OP_SUB:
+      intresult = ints->Sub(rbint, rcint);
+      break;
+   case OP_MUL:
+      intresult = ints->Mul(rbint, rcint);
+      break;
+   default:
+      break;
+   }
+
+   ints->StoreIndirect("TValue_i", "value_",
+   ints->              Load("ra"),
+                          intresult);
+   ints->StoreIndirect("TValue_i", "tt_",
+   ints->              Load("ra"),
+   ints->              Const(LUA_TNUMINT));
 
    // else if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_masktag(notints, notints->Load("rb"), LUA_TNUMBER);
-   auto isrcnum = jit_masktag(notints, notints->Load("rc"), LUA_TNUMBER);
+   auto isrbnum = jit_masktag(notints, rb, LUA_TNUMBER);
+   auto isrcnum = jit_masktag(notints, rc, LUA_TNUMBER);
 
-   auto addnums = notints->OrphanBuilder();
+   auto nums = notints->OrphanBuilder();
    auto notnums = notints->OrphanBuilder();
-   notints->IfThenElse(&addnums, &notnums, notints->And(isrbnum, isrcnum));
+   notints->IfThenElse(&nums, &notnums,
+   notints->           And(isrbnum, isrcnum));
 
-   // setfltvalue(ra, luai_numadd(L,tonumber(rb), tonumber(rc)));
-   auto numsum = addnums->Add(
-                 jit_tonumber(addnums, addnums->Load("rb")),
-                 jit_tonumber(addnums, addnums->Load("rc")));
-   addnums->StoreIndirect("TValue_n", "value_",
-   addnums->              Load("ra"),
-                          numsum);
-   addnums->StoreIndirect("TValue_n", "tt_", addnums->Load("ra"), addnums->Const(LUA_TNUMFLT));
+   // setfltvalue(ra, luai_num[add,sub,mul](L,tonumber(rb), tonumber(rc)));
+   TR::IlValue *rbnum = jit_tonumber(nums, rb);
+   TR::IlValue *rcnum = jit_tonumber(nums, rc);
+   TR::IlValue *numresult = nullptr;
+   switch (GET_OPCODE(instruction)) {
+   case OP_ADD:
+      numresult = nums->Add(rbnum, rcnum);
+      break;
+   case OP_SUB:
+      numresult = nums->Sub(rbnum, rcnum);
+      break;
+   case OP_MUL:
+      numresult = nums->Mul(rbnum, rcnum);
+      break;
+   default:
+      break;
+   }
+   nums->StoreIndirect("TValue_n", "value_",
+   nums->              Load("ra"),
+                          numresult);
+   nums->StoreIndirect("TValue_n", "tt_",
+   nums->              Load("ra"),
+   nums->              Const(LUA_TNUMFLT));
 
-   // else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_ADD)); }
+   // else { Protect(luaT_trybinTM(L, rb, rc, ra, (TM_ADD | TM_SUB | TM_MUL))); }
+   int operation = 0;
+   switch (GET_OPCODE(instruction)) {
+   case OP_ADD:
+      operation = TM_ADD;
+      break;
+   case OP_SUB:
+      operation = TM_SUB;
+      break;
+   case OP_MUL:
+      operation = TM_MUL;
+      break;
+   default:
+      break;
+   }
    notnums->Call("luaT_trybinTM", 5,
    notnums->     Load("L"),
-   notnums->     Load("rb"),
-   notnums->     Load("rc"),
+                 rb,
+                 rc,
    notnums->     Load("ra"),
-   notnums->     Const(TM_ADD));
-   jit_Protect(notnums);
-
-   return true;
-}
-
-bool Lua::FunctionBuilder::do_sub(TR::BytecodeBuilder* builder, Instruction instruction) {
-   // rb = RKB(i);
-   // rc = RKC(i);
-   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));
-
-   // if (ttisinteger(rb) && ttisinteger(rc))
-   auto isrbint = jit_checktag(builder, builder->Load("rb"), LUA_TNUMINT);
-   auto isrcint = jit_checktag(builder, builder->Load("rc"), LUA_TNUMINT);
-
-   auto addints = builder->OrphanBuilder();
-   auto notints = builder->OrphanBuilder();
-   builder->IfThenElse(&addints, &notints, builder->And(isrbint, isrcint));
-
-   // lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
-   // setivalue(ra, intop(-, ib, ic));
-   auto intsum = addints->Sub(
-                 addints->    LoadIndirect("TValue_i", "value_",
-                 addints->                 Load("rb")),
-                 addints->    LoadIndirect("TValue_i", "value_",
-                 addints->                 Load("rc")));
-   addints->StoreIndirect("TValue_i", "value_",
-   addints->              Load("ra"),
-                          intsum);
-   addints->StoreIndirect("TValue_i", "tt_", addints->Load("ra"), addints->Const(LUA_TNUMINT));
-
-   // else if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_masktag(notints, notints->Load("rb"), LUA_TNUMBER);
-   auto isrcnum = jit_masktag(notints, notints->Load("rc"), LUA_TNUMBER);
-
-   auto addnums = notints->OrphanBuilder();
-   auto notnums = notints->OrphanBuilder();
-   notints->IfThenElse(&addnums, &notnums, notints->And(isrbnum, isrcnum));
-
-   // setfltvalue(ra, luai_numsub(L,tonumber(rb), tonumber(rc)));
-   auto numsum = addnums->Sub(
-                 jit_tonumber(addnums, addnums->Load("rb")),
-                 jit_tonumber(addnums, addnums->Load("rc")));
-   addnums->StoreIndirect("TValue_n", "value_",
-   addnums->              Load("ra"),
-                          numsum);
-   addnums->StoreIndirect("TValue_n", "tt_", addnums->Load("ra"), addnums->Const(LUA_TNUMFLT));
-
-   // else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_SUB)); }
-   notnums->Call("luaT_trybinTM", 5,
-   notnums->     Load("L"),
-   notnums->     Load("rb"),
-   notnums->     Load("rc"),
-   notnums->     Load("ra"),
-   notnums->     Const(TM_SUB));
-   jit_Protect(notnums);
-
-   return true;
-}
-
-bool Lua::FunctionBuilder::do_mul(TR::BytecodeBuilder* builder, Instruction instruction) {
-   // rb = RKB(i);
-   // rc = RKC(i);
-   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));
-
-   // if (ttisinteger(rb) && ttisinteger(rc))
-   auto isrbint = jit_checktag(builder, builder->Load("rb"), LUA_TNUMINT);
-   auto isrcint = jit_checktag(builder, builder->Load("rc"), LUA_TNUMINT);
-
-   auto addints = builder->OrphanBuilder();
-   auto notints = builder->OrphanBuilder();
-   builder->IfThenElse(&addints, &notints, builder->And(isrbint, isrcint));
-
-   // lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
-   // setivalue(ra, intop(*, ib, ic));
-   auto intsum = addints->Mul(
-                 addints->    LoadIndirect("TValue_i", "value_",
-                 addints->                 Load("rb")),
-                 addints->    LoadIndirect("TValue_i", "value_",
-                 addints->                 Load("rc")));
-   addints->StoreIndirect("TValue_i", "value_",
-   addints->              Load("ra"),
-                          intsum);
-   addints->StoreIndirect("TValue_i", "tt_", addints->Load("ra"), addints->Const(LUA_TNUMINT));
-
-   // else if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_masktag(notints, notints->Load("rb"), LUA_TNUMBER);
-   auto isrcnum = jit_masktag(notints, notints->Load("rc"), LUA_TNUMBER);
-
-   auto addnums = notints->OrphanBuilder();
-   auto notnums = notints->OrphanBuilder();
-   notints->IfThenElse(&addnums, &notnums, notints->And(isrbnum, isrcnum));
-
-   // setfltvalue(ra, luai_nummul(L,tonumber(rb), tonumber(rc)));
-   auto numsum = addnums->Mul(
-                 jit_tonumber(addnums, addnums->Load("rb")),
-                 jit_tonumber(addnums, addnums->Load("rc")));
-   addnums->StoreIndirect("TValue_n", "value_",
-   addnums->              Load("ra"),
-                          numsum);
-   addnums->StoreIndirect("TValue_n", "tt_", addnums->Load("ra"), addnums->Const(LUA_TNUMFLT));
-
-   // else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_MUL)); }
-   notnums->Call("luaT_trybinTM", 5,
-   notnums->     Load("L"),
-   notnums->     Load("rb"),
-   notnums->     Load("rc"),
-   notnums->     Load("ra"),
-   notnums->     Const(TM_MUL));
+   notnums->     Const(operation));
    jit_Protect(notnums);
 
    return true;
