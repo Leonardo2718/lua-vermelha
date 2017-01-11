@@ -56,9 +56,7 @@ public:
 
     bool do_newtable(TR::BytecodeBuilder* builder, Instruction instruction);
 
-    bool do_add(TR::BytecodeBuilder* builder, Instruction instruction);
-    bool do_sub(TR::BytecodeBuilder* builder, Instruction instruction);
-    bool do_mul(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_math(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_mod(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_pow(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_div(TR::BytecodeBuilder* builder, Instruction instruction);
