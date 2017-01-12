@@ -46,7 +46,7 @@ public:
 
     bool do_move(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_loadk(TR::BytecodeBuilder* builder, Instruction instruction);
-    bool do_loadbool(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
+    bool do_loadbool(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
     bool do_loadnil(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction);
@@ -72,14 +72,14 @@ public:
     bool do_len(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_jmp(TR::BytecodeBuilder* builder, Instruction instruction);
-    bool do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
-    bool do_test(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
-    bool do_testset(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction);
+    bool do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
+    bool do_test(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
+    bool do_testset(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
 
     bool do_call(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
-    bool do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction);
+    bool do_forloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction);
     bool do_forprep(TR::BytecodeBuilder* builder, Instruction instruction);
 
     // convenience functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

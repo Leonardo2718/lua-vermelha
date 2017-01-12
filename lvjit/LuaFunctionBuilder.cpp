@@ -167,8 +167,6 @@ StkId vm_settable(lua_State* L, Instruction i) {
 StkId vm_newtable(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -366,8 +364,6 @@ StkId vm_shr(lua_State* L, Instruction i) {
 StkId vm_unm(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -392,8 +388,6 @@ StkId vm_unm(lua_State* L, Instruction i) {
 StkId vm_bnot(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -414,8 +408,6 @@ StkId vm_bnot(lua_State* L, Instruction i) {
 StkId vm_not(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -431,8 +423,6 @@ StkId vm_not(lua_State* L, Instruction i) {
 StkId vm_len(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -446,8 +436,6 @@ StkId vm_len(lua_State* L, Instruction i) {
 int32_t vm_test(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
    int32_t skipnext = 0;
@@ -467,8 +455,6 @@ int32_t vm_test(lua_State* L, Instruction i) {
 int32_t vm_testset(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
    int32_t skipnext = 0;
@@ -492,8 +478,6 @@ int32_t vm_forloop(lua_State* L, Instruction i) {
    // prologue
    int32_t continueLoop = 0;
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -529,8 +513,6 @@ int32_t vm_forloop(lua_State* L, Instruction i) {
 void vm_forprep(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
-   LClosure *cl = clLvalue(ci->func);
-   TValue *k = cl->p->k;
    StkId base = ci->u.l.base;
    StkId ra = RA(i);
 
@@ -818,7 +800,7 @@ bool Lua::FunctionBuilder::buildIL() {
          do_loadk(builder, instruction);
          break;
       case OP_LOADBOOL:
-         do_loadbool(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
+         do_loadbool(builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_LOADNIL:
          do_loadnil(builder, instruction);
@@ -892,19 +874,19 @@ bool Lua::FunctionBuilder::buildIL() {
          nextBuilder = nullptr;
          break;
       case OP_EQ:
-         do_cmp("luaV_equalobj", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
+         do_cmp("luaV_equalobj", builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_LT:
-         do_cmp("luaV_lessthan", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
+         do_cmp("luaV_lessthan", builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_LE:
-         do_cmp("luaV_lessequal", builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
+         do_cmp("luaV_lessequal", builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_TEST:
-         do_test(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
+         do_test(builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_TESTSET:
-         do_testset(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 2]), instruction);
+         do_testset(builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_CALL:
          do_call(builder, instruction);
@@ -914,7 +896,7 @@ bool Lua::FunctionBuilder::buildIL() {
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
          break;
       case OP_FORLOOP:
-         do_forloop(builder, static_cast<TR::IlBuilder*>(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]), instruction);
+         do_forloop(builder, bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)], instruction);
          break;
       case OP_FORPREP:
          do_forprep(builder, instruction);
@@ -962,7 +944,7 @@ bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction in
    return true;
 }
 
-bool Lua::FunctionBuilder::do_loadbool(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction) {
+bool Lua::FunctionBuilder::do_loadbool(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
    // setbvalue(ra, GETARG_B(i));
    builder->Call("jit_setbvalue", 2,
    builder->     Load("ra"),
@@ -1347,7 +1329,7 @@ bool Lua::FunctionBuilder::do_jmp(TR::BytecodeBuilder* builder, Instruction inst
    return true;
 }
 
-bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction) {
+bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
    /* cmp can be "luaV_equalobj", "luaV_lessthan", or "luaV_lessequal" */
 
    // cmp =  cmpFunc(L, RKB(i), RKC(i));
@@ -1369,7 +1351,7 @@ bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* buil
    return true;
 }
 
-bool Lua::FunctionBuilder::do_test(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction) {
+bool Lua::FunctionBuilder::do_test(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
    builder->Store("cmp",
    builder->      Call("vm_test", 2,
    builder->           Load("L"),
@@ -1381,7 +1363,7 @@ bool Lua::FunctionBuilder::do_test(TR::BytecodeBuilder* builder, TR::IlBuilder* 
    return true;
 }
 
-bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::IlBuilder* dest, Instruction instruction) {
+bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
    builder->Store("cmp",
    builder->      Call("vm_testset", 2,
    builder->           Load("L"),
@@ -1568,7 +1550,7 @@ bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction i
    return true;
 }
 
-bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction) {
+bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction) {
    int raIndex = GETARG_A(instruction);
    TR::IlValue *index = jit_R(builder, raIndex);
    TR::IlValue *limit = jit_R(builder, raIndex + 1);
