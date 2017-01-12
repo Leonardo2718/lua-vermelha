@@ -1569,10 +1569,50 @@ bool Lua::FunctionBuilder::do_return(TR::BytecodeBuilder* builder, Instruction i
 }
 
 bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction) {
-   builder->Store("continueLoop",
-   builder->      Call("vm_forloop", 2,
-   builder->           Load("L"),
-   builder->           ConstInt32(instruction)));
+   int raIndex = GETARG_A(instruction);
+   TR::IlValue *index = jit_R(builder, raIndex);
+   TR::IlValue *limit = jit_R(builder, raIndex + 1);
+   TR::IlValue *step = jit_R(builder, raIndex + 2);
+   TR::IlValue *externalIndex = jit_R(builder, raIndex + 3);
+
+   TR::IlValue *isindexint = jit_checktag(builder, index, LUA_TNUMINT);
+   TR::IlValue *islimitint = jit_checktag(builder, limit, LUA_TNUMINT);
+   TR::IlValue *isstepint = jit_checktag(builder, step, LUA_TNUMINT);
+
+   TR::IlBuilder *intloop = nullptr;
+   TR::IlBuilder *notints = nullptr;
+   builder->IfThenElse(&intloop, &notints, builder->And(isindexint, builder->And(islimitint, isstepint)));
+
+   TR::IlValue *indexValue = intloop->LoadIndirect("TValue_i", "value_", index);
+   TR::IlValue *limitValue = intloop->LoadIndirect("TValue_i", "value_", limit);
+   TR::IlValue *stepValue = intloop->LoadIndirect("TValue_i", "value_", step);
+   TR::IlValue *nextIndexValue = intloop->Add(indexValue, stepValue);
+
+   //if ((0 < step) ? (idx <= limit) : (limit <= idx))
+   TR::IlBuilder *negativeStepInt = nullptr;
+   TR::IlBuilder *positiveStepInt = nullptr;
+   intloop->IfThenElse(&positiveStepInt, &negativeStepInt,
+   intloop->          LessThan(
+   intloop->                   ConvertTo(luaTypes.lua_Integer,
+   intloop->                             ConstInt32(0)), stepValue));
+
+   TR::IlBuilder *continueLoopInt = nullptr;
+   TR::IlBuilder *breakLoopInt = nullptr;
+   negativeStepInt->IfThenElse(&breakLoopInt, &continueLoopInt, negativeStepInt->GreaterThan(limitValue, nextIndexValue));
+   positiveStepInt->IfThenElse(&breakLoopInt, &continueLoopInt, positiveStepInt->GreaterThan(nextIndexValue, limitValue));
+
+   breakLoopInt->Store("continueLoop", breakLoopInt->ConstInt32(0));
+
+   continueLoopInt->StoreIndirect("TValue_i", "value_", index, nextIndexValue);
+   /* Do NOT have to set type on "index" as it is already an int */
+   continueLoopInt->StoreIndirect("TValue_i", "value_", externalIndex, nextIndexValue);
+   continueLoopInt->StoreIndirect("TValue_i", "tt_", externalIndex, continueLoopInt->ConstInt32(LUA_TNUMINT));
+   continueLoopInt->Store("continueLoop", continueLoopInt->ConstInt32(1));
+
+   notints->Store("continueLoop",
+   notints->      Call("vm_forloop", 2,
+   notints->           Load("L"),
+   notints->           ConstInt32(instruction)));
 
    builder->IfCmpNotEqualZero(&loopStart,
    builder->              Load("continueLoop"));
@@ -1581,9 +1621,27 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::IlBuilde
 }
 
 bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction instruction) {
-   builder->Call("vm_forprep", 2,
-   builder->     Load("L"),
-   builder->     ConstInt32(instruction));
+   int raIndex = GETARG_A(instruction);
+   TR::IlValue *index = jit_R(builder, raIndex);
+   TR::IlValue *limit = jit_R(builder, raIndex + 1);
+   TR::IlValue *step = jit_R(builder, raIndex + 2);
+
+   TR::IlValue *isindexint = jit_checktag(builder, index, LUA_TNUMINT);
+   TR::IlValue *islimitint = jit_checktag(builder, limit, LUA_TNUMINT);
+   TR::IlValue *isstepint = jit_checktag(builder, step, LUA_TNUMINT);
+
+   TR::IlBuilder *intloop = nullptr;
+   TR::IlBuilder *notints = nullptr;
+   builder->IfThenElse(&intloop, &notints, builder->And(isindexint, builder->And(islimitint, isstepint)));
+
+   TR::IlValue *indexValue = intloop->LoadIndirect("TValue_i", "value_", index);
+   TR::IlValue *stepValue = intloop->LoadIndirect("TValue_i", "value_", step);
+   TR::IlValue *startIndex = intloop->Sub(indexValue, stepValue);
+   intloop->StoreIndirect("TValue_i", "value_", index, startIndex);
+
+   notints->Call("vm_forprep", 2,
+   notints->     Load("L"),
+   notints->     ConstInt32(instruction));
 
    return true;
 }
