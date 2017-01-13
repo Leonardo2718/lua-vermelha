@@ -776,6 +776,10 @@ bool Lua::FunctionBuilder::buildIL() {
                                 LoadIndirect("CallInfo", "func",
                                              Load("ci"))));
 
+   intType = ConstInt32(LUA_TNUMINT);
+   fltType = ConstInt32(LUA_TNUMFLT);
+   numType = ConstInt32(LUA_TNUMBER);
+
    setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
 
@@ -929,17 +933,10 @@ bool Lua::FunctionBuilder::do_move(TR::BytecodeBuilder* builder, Instruction ins
 }
 
 bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction instruction) {
-   // rb = k + GETARG_Bx(i);
-   auto arg_b = GETARG_Bx(instruction);
-   builder->Store("rb",
-   builder->   IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-   builder->           ConstAddress(prototype->k),
-   builder->           ConstInt32(arg_b)));
-
-   // *ra = *rb;
+   // setobj2s(L, ra, RBx(i));
    jit_setobj(builder,
               builder->Load("ra"),
-              builder->Load("rb"));
+              jit_K(builder, GETARG_Bx(instruction)));
 
    return true;
 }
@@ -1059,8 +1056,10 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    TR::IlValue *rc = jit_RK(builder, GETARG_C(instruction));
 
    // if (ttisinteger(rb) && ttisinteger(rc))
-   auto isrbint = jit_checktag(builder, rb, LUA_TNUMINT);
-   auto isrcint = jit_checktag(builder, rc, LUA_TNUMINT);
+   auto rbtype = builder->LoadIndirect("TValue", "tt_", rb);
+   auto isrbint = jit_isinteger(builder, rbtype);
+   auto rctype = builder->LoadIndirect("TValue", "tt_", rc);
+   auto isrcint = jit_isinteger(builder, rctype);
 
    auto ints = builder->OrphanBuilder();
    auto notints = builder->OrphanBuilder();
@@ -1088,14 +1087,14 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
 
    ints->StoreIndirect("TValue_i", "value_",
    ints->              Load("ra"),
-                          intresult);
+                       intresult);
    ints->StoreIndirect("TValue_i", "tt_",
    ints->              Load("ra"),
-   ints->              Const(LUA_TNUMINT));
+                       intType);
 
    // else if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_masktag(notints, rb, LUA_TNUMBER);
-   auto isrcnum = jit_masktag(notints, rc, LUA_TNUMBER);
+   auto isrbnum = jit_isnumber(notints, rbtype);
+   auto isrcnum = jit_isnumber(notints, rctype);
 
    auto nums = notints->OrphanBuilder();
    auto notnums = notints->OrphanBuilder();
@@ -1103,8 +1102,8 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    notints->           And(isrbnum, isrcnum));
 
    // setfltvalue(ra, luai_num[add,sub,mul](L,tonumber(rb), tonumber(rc)));
-   TR::IlValue *rbnum = jit_tonumber(nums, rb);
-   TR::IlValue *rcnum = jit_tonumber(nums, rc);
+   TR::IlValue *rbnum = jit_tonumber(nums, rb, rbtype);
+   TR::IlValue *rcnum = jit_tonumber(nums, rc, rctype);
    TR::IlValue *numresult = nullptr;
    switch (GET_OPCODE(instruction)) {
    case OP_ADD:
@@ -1121,10 +1120,10 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    }
    nums->StoreIndirect("TValue_n", "value_",
    nums->              Load("ra"),
-                          numresult);
+                       numresult);
    nums->StoreIndirect("TValue_n", "tt_",
    nums->              Load("ra"),
-   nums->              Const(LUA_TNUMFLT));
+                       fltType);
 
    // else { Protect(luaT_trybinTM(L, rb, rc, ra, (TM_ADD | TM_SUB | TM_MUL))); }
    int operation = 0;
@@ -1177,8 +1176,10 @@ bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction inst
    TR::IlValue *rc = jit_RK(builder, GETARG_C(instruction));
 
    // if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_masktag(builder, rb, LUA_TNUMBER);
-   auto isrcnum = jit_masktag(builder, rc, LUA_TNUMBER);
+   auto rbtype = builder->LoadIndirect("TValue", "tt_", rb);
+   auto isrbnum = jit_isnumber(builder, rbtype);
+   auto rctype = builder->LoadIndirect("TValue", "tt_", rc);
+   auto isrcnum = jit_isnumber(builder, rctype);
 
    auto nums = builder->OrphanBuilder();
    auto notnums = builder->OrphanBuilder();
@@ -1187,14 +1188,14 @@ bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction inst
 
    // setfltvalue(ra, luai_numdiv(L,tonumber(rb), tonumber(rc)));
    auto result = nums->Div(
-                 jit_tonumber(nums, rb),
-                 jit_tonumber(nums, rc));
+                 jit_tonumber(nums, rb, rbtype),
+                 jit_tonumber(nums, rc, rctype));
    nums->StoreIndirect("TValue_n", "value_",
    nums->              Load("ra"),
                        result);
    nums->StoreIndirect("TValue_n", "tt_",
    nums->             Load("ra"),
-   nums->             Const(LUA_TNUMFLT));
+                      fltType);
 
    // else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_DIV)); }
    notnums->Call("luaT_trybinTM", 5,
@@ -1560,9 +1561,9 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::Bytecode
    TR::IlValue *step = jit_R(builder, raIndex + 2);
    TR::IlValue *externalIndex = jit_R(builder, raIndex + 3);
 
-   TR::IlValue *isindexint = jit_checktag(builder, index, LUA_TNUMINT);
-   TR::IlValue *islimitint = jit_checktag(builder, limit, LUA_TNUMINT);
-   TR::IlValue *isstepint = jit_checktag(builder, step, LUA_TNUMINT);
+   TR::IlValue *isindexint = jit_checktag(builder, index, intType);
+   TR::IlValue *islimitint = jit_checktag(builder, limit, intType);
+   TR::IlValue *isstepint = jit_checktag(builder, step, intType);
 
    TR::IlBuilder *intloop = nullptr;
    TR::IlBuilder *notints = nullptr;
@@ -1591,7 +1592,7 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::Bytecode
    continueLoopInt->StoreIndirect("TValue_i", "value_", index, nextIndexValue);
    /* Do NOT have to set type on "index" as it is already an int */
    continueLoopInt->StoreIndirect("TValue_i", "value_", externalIndex, nextIndexValue);
-   continueLoopInt->StoreIndirect("TValue_i", "tt_", externalIndex, continueLoopInt->ConstInt32(LUA_TNUMINT));
+   continueLoopInt->StoreIndirect("TValue_i", "tt_", externalIndex, intType);
    continueLoopInt->Store("continueLoop", continueLoopInt->ConstInt32(1));
 
    notints->Store("continueLoop",
@@ -1611,9 +1612,9 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
    TR::IlValue *limit = jit_R(builder, raIndex + 1);
    TR::IlValue *step = jit_R(builder, raIndex + 2);
 
-   TR::IlValue *isindexint = jit_checktag(builder, index, LUA_TNUMINT);
-   TR::IlValue *islimitint = jit_checktag(builder, limit, LUA_TNUMINT);
-   TR::IlValue *isstepint = jit_checktag(builder, step, LUA_TNUMINT);
+   TR::IlValue *isindexint = jit_checktag(builder, index, intType);
+   TR::IlValue *islimitint = jit_checktag(builder, limit, intType);
+   TR::IlValue *isstepint = jit_checktag(builder, step, intType);
 
    TR::IlBuilder *intloop = nullptr;
    TR::IlBuilder *notints = nullptr;
@@ -1642,6 +1643,12 @@ void Lua::FunctionBuilder::jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue*
    builder->StoreIndirect("TValue", "tt_", dest, src_tt);
 }
 
+void Lua::FunctionBuilder::jit_Protect(TR::IlBuilder* builder) {
+   builder->Store("base",
+   builder->      LoadIndirect("CallInfo", "u.l.base",
+   builder->                   Load("ci")));
+}
+
 TR::IlValue* Lua::FunctionBuilder::jit_R(TR::BytecodeBuilder* builder, int arg) {
    auto reg = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
               builder->        Load("base"),
@@ -1649,15 +1656,15 @@ TR::IlValue* Lua::FunctionBuilder::jit_R(TR::BytecodeBuilder* builder, int arg) 
    return reg;
 }
 
+TR::IlValue* Lua::FunctionBuilder::jit_K(TR::BytecodeBuilder* builder, int arg) {
+   auto constant = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+                   builder->        ConstAddress(prototype->k),
+                   builder->        ConstInt32(arg));
+   return constant;
+}
+
 TR::IlValue* Lua::FunctionBuilder::jit_RK(TR::BytecodeBuilder* builder, int arg) {
-   return ISK(arg) ?
-                     builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-                     builder->        ConstAddress(prototype->k),
-                     builder->        ConstInt32(INDEXK(arg)))
-                   :
-                     builder->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-                     builder->        Load("base"),
-                     builder->        ConstInt32(arg));
+   return ISK(arg) ? jit_K(builder, INDEXK(arg)) : jit_R(builder, arg);
 }
 
 TR::IlValue* Lua::FunctionBuilder::jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func) {
@@ -1666,36 +1673,23 @@ TR::IlValue* Lua::FunctionBuilder::jit_clLvalue(TR::IlBuilder* builder, TR::IlVa
           builder->          LoadIndirect("TValue", "value_", func));  // pretend `value_` is really `value_.gc` because it's a union
 }
 
-void Lua::FunctionBuilder::jit_Protect(TR::IlBuilder* builder) {
-   builder->Store("base",
-   builder->      LoadIndirect("CallInfo", "u.l.base",
-   builder->                   Load("ci")));
-}
-
-TR::IlValue* Lua::FunctionBuilder::jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, int type) {
+TR::IlValue* Lua::FunctionBuilder::jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
    auto tt = builder->LoadIndirect("TValue", "tt_", value);
-   return builder->EqualTo(tt, builder->ConstInt32(type));
-}
-
-TR::IlValue* Lua::FunctionBuilder::jit_masktag(TR::IlBuilder* builder, TR::IlValue* value, int type) {
-   auto tt = builder->LoadIndirect("TValue", "tt_", value);
-   return builder->And(tt, builder->ConstInt32(type));
+   return builder->EqualTo(tt, type);
 }
 
 /*
 The IL generated by this function will not be exactly the same as the actual implementation
 of the `tonumber` macro. This is because there is no efficient way of representing in-out
-parameters in JitBuilder. So, insteady, the generated IL assumes that the `TValue` stores a
-anumber (a `lua_Integer` or a `lua_Number`) and returns the stored value as a `lua_Number`,
+parameters in JitBuilder. So, instead, the generated IL assumes that the `TValue` stores a
+number (a `lua_Integer` or a `lua_Number`) and returns the stored value as a `lua_Number`,
 applying a conversion if needed.
 */
-TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value) {
-   builder->Store("num", Const(static_cast<lua_Number>(0.0)));
-
+TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
    auto isnum = builder->OrphanBuilder();
    auto isint = builder->OrphanBuilder();
 
-   builder->IfThenElse(&isnum, &isint, jit_checktag(builder, value, LUA_TNUMFLT));
+   builder->IfThenElse(&isint, &isnum, jit_isinteger(builder, type));
 
    isnum->Store("num",
    isnum->      LoadIndirect("TValue_n", "value_", value));
@@ -1705,4 +1699,12 @@ TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlVa
    isint->                LoadIndirect("TValue_i", "value_", value)));
 
    return builder->Load("num");
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_isinteger(TR::IlBuilder* builder, TR::IlValue* type) {
+   return builder->EqualTo(type, intType);
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type) {
+   return builder->And(type, numType);
 }
