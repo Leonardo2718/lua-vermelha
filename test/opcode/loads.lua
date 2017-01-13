@@ -44,8 +44,8 @@ local function loadconst_3() return 3 end
   -- exercises LOADK
 local function return2vals() return 1, 2 end
   -- exercises LOADK (mostly to test returning more than one value)
-local function loadnil() return nil end
-  -- exercises LOADNIL
+local function loadnils() local a = 1; local b,c,d; local e = 2; return a,b,c,d,e end
+  -- exercises LOADNIL (ensures unitiailized locals get a value of nil)
 local function loadbool_true() return true end
   -- exercises LOADBOOL
 
@@ -58,8 +58,13 @@ local a,b = return2vals()
 assert_equal(1, a, "first value of return2vals()")
 assert_equal(2, b, "second value of return2vals()")
 
-assert_compile(loadnil, "loadnil")
-assert_equal(nil, loadnil(), "loadnil()")
+assert_compile(loadnils, "loadnils")
+local a,b,c,d,e = loadnils()
+assert_equal(1, a, "first value of loadnils()")
+assert_equal(nil, b, "second value of loadnils()")
+assert_equal(nil, c, "third value of loadnils()")
+assert_equal(nil, d, "fourth value of loadnils()")
+assert_equal(2, e, "fifth value of loadnils()")
 
 assert_compile(loadbool_true, "loadbool_true")
 assert_equal(true, loadbool_true(), "loadbool_true()")

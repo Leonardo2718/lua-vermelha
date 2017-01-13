@@ -964,9 +964,10 @@ bool Lua::FunctionBuilder::do_loadnil(TR::BytecodeBuilder* builder, Instruction 
    setnils->StoreIndirect("TValue", "tt_",
    setnils->              Load("ra"),
    setnils->              ConstInt32(LUA_TNIL));
-   setnils->IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
-   setnils->        Load("ra"),
-   setnils->        ConstInt32(1));
+   setnils->Store("ra",
+   setnils->      IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   setnils->              Load("ra"),
+   setnils->              ConstInt32(1)));
 
    return true;
 }
