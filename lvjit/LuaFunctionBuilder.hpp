@@ -88,24 +88,22 @@ public:
     These functions generate IL builders that are equivalent to the expansion of
     corresponding macros defined in the Lua VM.
     */
-    
     void jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* obj1, TR::IlValue* obj2);
-
-    TR::IlValue* jit_R(TR::BytecodeBuilder* builder, int arg);
-
-    TR::IlValue* jit_RK(TR::BytecodeBuilder* builder, int arg); // equivalent to RKB and RKC in `lua/lvm.c`
-    
-    TR::IlValue* jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func);
-
     void jit_Protect(TR::IlBuilder* builder); // updates local copies of values in case of stack reallocation
-
-    TR::IlValue* jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, int type);
-    TR::IlValue* jit_masktag(TR::IlBuilder* builder, TR::IlValue* value, int type);
-
-    TR::IlValue* jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value);
+    TR::IlValue* jit_R(TR::BytecodeBuilder* builder, int arg);
+    TR::IlValue* jit_K(TR::BytecodeBuilder* builder, int arg);
+    TR::IlValue* jit_RK(TR::BytecodeBuilder* builder, int arg); // equivalent to RKB and RKC in `lua/lvm.c`
+    TR::IlValue* jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func);
+    TR::IlValue* jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
+    TR::IlValue* jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
+    TR::IlValue* jit_isinteger(TR::IlBuilder* builder, TR::IlValue* type);
+    TR::IlValue* jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type);
 
 private:
     Proto* prototype;
+    TR::IlValue *intType;
+    TR::IlValue *fltType;
+    TR::IlValue *numType;
     TypeDictionary::LuaTypes luaTypes;
 };
 
