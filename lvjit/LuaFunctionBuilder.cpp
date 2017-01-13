@@ -1173,31 +1173,34 @@ bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction inst
 bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction instruction) {
    // rb = RKB(i);
    // rc = RKC(i);
-   builder->Store("rb", jit_RK(builder, GETARG_B(instruction)));
-   builder->Store("rc", jit_RK(builder, GETARG_C(instruction)));
+   TR::IlValue *rb = jit_RK(builder, GETARG_B(instruction));
+   TR::IlValue *rc = jit_RK(builder, GETARG_C(instruction));
 
    // if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_masktag(builder, builder->Load("rb"), LUA_TNUMBER);
-   auto isrcnum = jit_masktag(builder, builder->Load("rc"), LUA_TNUMBER);
+   auto isrbnum = jit_masktag(builder, rb, LUA_TNUMBER);
+   auto isrcnum = jit_masktag(builder, rc, LUA_TNUMBER);
 
-   auto addnums = builder->OrphanBuilder();
+   auto nums = builder->OrphanBuilder();
    auto notnums = builder->OrphanBuilder();
-   builder->IfThenElse(&addnums, &notnums, builder->And(isrbnum, isrcnum));
+   builder->IfThenElse(&nums, &notnums,
+   builder->           And(isrbnum, isrcnum));
 
    // setfltvalue(ra, luai_numdiv(L,tonumber(rb), tonumber(rc)));
-   auto numsum = addnums->Div(
-                 jit_tonumber(addnums, addnums->Load("rb")),
-                 jit_tonumber(addnums, addnums->Load("rc")));
-   addnums->StoreIndirect("TValue_n", "value_",
-   addnums->              Load("ra"),
-                          numsum);
-   addnums->StoreIndirect("TValue_n", "tt_", addnums->Load("ra"), addnums->Const(LUA_TNUMFLT));
+   auto result = nums->Div(
+                 jit_tonumber(nums, rb),
+                 jit_tonumber(nums, rc));
+   nums->StoreIndirect("TValue_n", "value_",
+   nums->              Load("ra"),
+                       result);
+   nums->StoreIndirect("TValue_n", "tt_",
+   nums->             Load("ra"),
+   nums->             Const(LUA_TNUMFLT));
 
    // else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_DIV)); }
    notnums->Call("luaT_trybinTM", 5,
    notnums->     Load("L"),
-   notnums->     Load("rb"),
-   notnums->     Load("rc"),
+                 rb,
+                 rc,
    notnums->     Load("ra"),
    notnums->     Const(TM_DIV));
    jit_Protect(notnums);
