@@ -70,6 +70,7 @@ public:
     bool do_bnot(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_not(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_len(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_concat(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_jmp(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);

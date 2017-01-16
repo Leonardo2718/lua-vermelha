@@ -433,6 +433,25 @@ StkId vm_len(lua_State* L, Instruction i) {
    return base;
 }
 
+StkId vm_concat(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   StkId base = ci->u.l.base;
+   int b = GETARG_B(i);
+   int c = GETARG_C(i);
+   StkId ra;
+   StkId rb;
+   L->top = base + c + 1;  /* mark the end of concat operands */
+   Protect(luaV_concat(L, c - b + 1));
+   ra = RA(i);  /* 'luaV_concat' may invoke TMs and move the stack */
+   rb = base + b;
+   setobjs2s(L, ra, rb);
+   checkGC(L, (ra >= rb ? ra + 1 : rb));
+   L->top = ci->top;  /* restore top */
+
+   return base;
+}
+
 int32_t vm_test(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -737,6 +756,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   plua_State,
                   luaTypes.Instruction);
 
+   DefineFunction("vm_concat", __FILE__, "0", (void*)vm_concat,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
    DefineFunction("vm_test", __FILE__, "0", (void*)vm_test,
                   Int32, 2,
                   plua_State,
@@ -871,6 +895,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_LEN:
          do_len(builder, instruction);
+         break;
+      case OP_CONCAT:
+         do_concat(builder, instruction);
          break;
       case OP_JMP:
          do_jmp(builder, instruction);
@@ -1294,6 +1321,15 @@ bool Lua::FunctionBuilder::do_not(TR::BytecodeBuilder* builder, Instruction inst
 bool Lua::FunctionBuilder::do_len(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("base",
    builder->      Call("vm_len", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_concat(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_concat", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
 
