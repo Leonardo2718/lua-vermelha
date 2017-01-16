@@ -1604,7 +1604,9 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::Bytecode
 
    TR::IlBuilder *intloop = nullptr;
    TR::IlBuilder *notints = nullptr;
-   builder->IfThenElse(&intloop, &notints, builder->And(isindexint, builder->And(islimitint, isstepint)));
+   builder->IfThenElse(&intloop, &notints,
+   builder->           And(isindexint,
+   builder->           And(islimitint, isstepint)));
 
    TR::IlValue *indexValue = intloop->LoadIndirect("TValue_i", "value_", index);
    TR::IlValue *limitValue = intloop->LoadIndirect("TValue_i", "value_", limit);
@@ -1621,16 +1623,20 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::Bytecode
 
    TR::IlBuilder *continueLoopInt = nullptr;
    TR::IlBuilder *breakLoopInt = nullptr;
-   negativeStepInt->IfThenElse(&breakLoopInt, &continueLoopInt, negativeStepInt->GreaterThan(limitValue, nextIndexValue));
-   positiveStepInt->IfThenElse(&breakLoopInt, &continueLoopInt, positiveStepInt->GreaterThan(nextIndexValue, limitValue));
+   negativeStepInt->IfThenElse(&breakLoopInt, &continueLoopInt,
+   negativeStepInt->           GreaterThan(limitValue, nextIndexValue));
+   positiveStepInt->IfThenElse(&breakLoopInt, &continueLoopInt,
+   positiveStepInt->           GreaterThan(nextIndexValue, limitValue));
 
-   breakLoopInt->Store("continueLoop", breakLoopInt->ConstInt32(0));
+   breakLoopInt->Store("continueLoop",
+   breakLoopInt->      ConstInt32(0));
 
    continueLoopInt->StoreIndirect("TValue_i", "value_", index, nextIndexValue);
    /* Do NOT have to set type on "index" as it is already an int */
    continueLoopInt->StoreIndirect("TValue_i", "value_", externalIndex, nextIndexValue);
    continueLoopInt->StoreIndirect("TValue_i", "tt_", externalIndex, intType);
-   continueLoopInt->Store("continueLoop", continueLoopInt->ConstInt32(1));
+   continueLoopInt->Store("continueLoop",
+   continueLoopInt->      ConstInt32(1));
 
    notints->Store("continueLoop",
    notints->      Call("vm_forloop", 2,
@@ -1655,7 +1661,9 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
 
    TR::IlBuilder *intloop = nullptr;
    TR::IlBuilder *notints = nullptr;
-   builder->IfThenElse(&intloop, &notints, builder->And(isindexint, builder->And(islimitint, isstepint)));
+   builder->IfThenElse(&intloop, &notints,
+   builder->           And(isindexint,
+   builder->               And(islimitint, isstepint)));
 
    TR::IlValue *indexValue = intloop->LoadIndirect("TValue_i", "value_", index);
    TR::IlValue *stepValue = intloop->LoadIndirect("TValue_i", "value_", step);
