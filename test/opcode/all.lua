@@ -37,6 +37,7 @@ local test_files = { "arithmetic.lua"
                    , "return.lua"
                    , "tables.lua"
                    , "upvaluetable.lua"
+                   , "varargs.lua"
                    }
 
 for _,file in ipairs(test_files) do

@@ -118,6 +118,10 @@ StkId jit_settableProtected(lua_State* L, TValue* t, TValue* k, TValue* v) {
    return base;
 }
 
+void jit_checkstack(lua_State* L, int n) {
+   luaD_checkstack(L, n);
+}
+
 //~ Lua VM interpreter helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /*
@@ -679,6 +683,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   pTValue,
                   pTValue);
 
+   DefineFunction("jit_checkstack", __FILE__, "0", (void*)jit_checkstack,
+                  NoType, 2,
+                  plua_State,
+                  types->toIlType<int>());
+
    // Lua VM interpreter helpers
 
    DefineFunction("vm_gettable", __FILE__, "0", (void*)vm_gettable,
@@ -933,6 +942,9 @@ bool Lua::FunctionBuilder::buildIL() {
          do_forprep(builder, instruction);
          builder->AddFallThroughBuilder(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
+         break;
+      case OP_VARARG:
+         do_vararg(builder, instruction);
          break;
       default:
          return false;
@@ -1677,10 +1689,111 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
    return true;
 }
 
+bool Lua::FunctionBuilder::do_vararg(TR::BytecodeBuilder* builder, Instruction instruction) {
+   //int n = cast_int(base - ci->func) - cl->p->numparams - 1;
+   builder->Store("n",
+   builder->	Sub(
+   builder->		ConvertTo(Int32,
+   builder->                  Div(
+   builder->                      Sub(
+   builder->                          ConvertTo(Int64,
+   builder->                                    Load("base")),
+   builder->                          ConvertTo(Int64,
+   builder->                                    LoadIndirect("CallInfo", "func",
+   builder->                                                 Load("ci")))),
+   builder->                      ConstInt64(luaTypes.TValue->getSize()))),
+   builder->        ConstInt32(prototype->numparams + 1)));
+
+   TR::IlBuilder *lessthan = nullptr;
+   builder->IfThen(&lessthan,
+   builder->       LessThan(
+   builder->                Load("n"),
+   builder->                ConstInt32(0)));
+
+   lessthan->Store("n",
+   lessthan->      ConstInt32(0));
+
+   int b = GETARG_B(instruction) - 1;  /* required results */
+   /* Since b is a constant value for this instruction we can make this decision
+    * compile time one instead of a runtime one.*/
+   //if (b < 0) {
+   if (b < 0) {
+      //b = n;  /* get all var. arguments */
+      builder->Store("b",
+      builder->      Load("n"));
+
+      //Protect(luaD_checkstack(L, n));
+      builder->Call("jit_checkstack", 2,
+      builder->     Load("L"),
+      builder->     Load("n"));
+      jit_Protect(builder);
+
+      //ra = RA(i);  /* previous call may change the stack */
+      builder->Store("ra", jit_R(builder, GETARG_A(instruction)));
+      //L->top = ra + n;
+      builder->StoreIndirect("lua_State", "top",
+      builder->              Load("L"),
+      builder->              IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+      builder->                      Load("ra"),
+      builder->                      Load("n")));
+   } else {
+      /* Just store b as the constant value if it was >= 0 */
+      builder->Store("b",
+      builder->      ConstInt32(b));
+   }
+
+   //for (j = 0; j < b && j < n; j++)
+   TR::IlBuilder *setvals = nullptr;
+   TR::IlBuilder *loopbreak = nullptr;
+   builder->ForLoopWithBreak(true, "j", &setvals, &loopbreak,
+   builder->                 ConstInt32(0),
+   builder->                 Load("b"),
+   builder->                 ConstInt32(1));
+
+   // j < n break condition
+   TR::IlValue *breakcondition = setvals->LessThan(
+                                 setvals->         Load("j"),
+                                 setvals->         Load("n"));
+   setvals->IfCmpEqualZero(&loopbreak, breakcondition);
+
+   //setobjs2s(L, ra + j, base - n + j);
+   setvals->Store("dest",
+   setvals->      IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   setvals->              Load("ra"),
+   setvals->              Load("j")));
+   //base - n + j is equivalent to base[0 - (n+j)] which can be used with IndexAt
+   setvals->Store("src",
+   setvals->      IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   setvals->              Load("base"),
+   setvals->              Sub(
+   setvals->                  ConstInt32(0),
+   setvals->                  Sub(
+   setvals->                      Load("n"),
+   setvals->                      Load("j")))));
+
+   jit_setobj(setvals, setvals->Load("dest"), setvals->Load("src"));
+
+   //for (; j < b; j++)  /* complete required results with nil */
+   auto setnils = OrphanBuilder();
+   builder->ForLoopUp("j", &setnils,
+   builder->          Load("j"),
+   builder->          Load("n"),
+   builder->          ConstInt32(1));
+
+   //setnilvalue(ra + j);
+   setnils->StoreIndirect("TValue", "tt_",
+   setnils->              IndexAt(typeDictionary()->PointerTo(luaTypes.TValue),
+   setnils->                      Load("ra"),
+   setnils->                      Load("j")),
+   setnils->              ConstInt32(LUA_TNIL));
+
+   return true;
+}
+
 
 //~ IL generation helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-void Lua::FunctionBuilder::jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* dest, TR::IlValue* src) {
+void Lua::FunctionBuilder::jit_setobj(TR::IlBuilder* builder, TR::IlValue* dest, TR::IlValue* src) {
    // *dest = *src;
    auto src_value = builder->LoadIndirect("TValue", "value_", src);
    auto src_tt = builder->LoadIndirect("TValue", "tt_", src);
