@@ -82,6 +82,8 @@ public:
 
     bool do_forloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction);
     bool do_forprep(TR::BytecodeBuilder* builder, Instruction instruction);
+    
+    bool do_vararg(TR::BytecodeBuilder* builder, Instruction instruction);
 
     // convenience functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -89,7 +91,7 @@ public:
     These functions generate IL builders that are equivalent to the expansion of
     corresponding macros defined in the Lua VM.
     */
-    void jit_setobj(TR::BytecodeBuilder* builder, TR::IlValue* obj1, TR::IlValue* obj2);
+    void jit_setobj(TR::IlBuilder* builder, TR::IlValue* obj1, TR::IlValue* obj2);
     void jit_Protect(TR::IlBuilder* builder); // updates local copies of values in case of stack reallocation
     TR::IlValue* jit_R(TR::BytecodeBuilder* builder, int arg);
     TR::IlValue* jit_K(TR::BytecodeBuilder* builder, int arg);
