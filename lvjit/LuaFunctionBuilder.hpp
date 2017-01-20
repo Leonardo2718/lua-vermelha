@@ -75,6 +75,7 @@ public:
     bool do_concat(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_jmp(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_eq(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
     bool do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
     bool do_test(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
     bool do_testset(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
@@ -101,7 +102,9 @@ public:
     TR::IlValue* jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func);
     TR::IlValue* jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
     TR::IlValue* jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
+    TR::IlValue* jit_tointeger(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
     TR::IlValue* jit_isinteger(TR::IlBuilder* builder, TR::IlValue* type);
+    TR::IlValue* jit_isfloat(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type);
 
 private:
