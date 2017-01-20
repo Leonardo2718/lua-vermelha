@@ -36,6 +36,7 @@ local test_files = { "arithmetic.lua"
                    , "move.lua"
                    , "return.lua"
                    , "tables.lua"
+                   , "upvalue.lua"
                    , "upvaluetable.lua"
                    , "varargs.lua"
                    }
