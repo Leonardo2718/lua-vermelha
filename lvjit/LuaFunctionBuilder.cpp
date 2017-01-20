@@ -122,6 +122,10 @@ void jit_checkstack(lua_State* L, int n) {
    luaD_checkstack(L, n);
 }
 
+void jit_luaC_upvalbarrier(lua_State *L, UpVal *uv) {
+   luaC_upvalbarrier(L, uv);
+}
+
 //~ Lua VM interpreter helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /*
@@ -688,6 +692,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   plua_State,
                   types->toIlType<int>());
 
+   DefineFunction("jit_luaC_upvalbarrier", __FILE__, "0", (void*)jit_luaC_upvalbarrier,
+                  NoType, 2,
+                  plua_State,
+                  types->PointerTo(luaTypes.UpVal));
+
    // Lua VM interpreter helpers
 
    DefineFunction("vm_gettable", __FILE__, "0", (void*)vm_gettable,
@@ -842,6 +851,9 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_LOADNIL:
          do_loadnil(builder, instruction);
          break;
+      case OP_GETUPVAL:
+         do_getupval(builder, instruction);
+         break;
       case OP_GETTABUP:
          do_gettabup(builder, instruction);
          break;
@@ -850,6 +862,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_SETTABUP:
          do_settabup(builder, instruction);
+         break;
+      case OP_SETUPVAL:
+         do_setupval(builder, instruction);
          break;
       case OP_SETTABLE:
          do_settable(builder, instruction);
@@ -1011,6 +1026,25 @@ bool Lua::FunctionBuilder::do_loadnil(TR::BytecodeBuilder* builder, Instruction 
    return true;
 }
 
+bool Lua::FunctionBuilder::do_getupval(TR::BytecodeBuilder* builder, Instruction instruction) {
+   //setobj2s(L, ra, cl->upvals[b]->v);
+   auto pUpVal = typeDictionary()->PointerTo(luaTypes.UpVal);
+   auto ppUpVal = typeDictionary()->PointerTo(pUpVal);
+   builder->Store("upval",
+   builder->      LoadIndirect("UpVal", "v",
+   builder->                   LoadAt(pUpVal,
+   builder->                          IndexAt(ppUpVal,
+   builder->                                  Add(
+   builder->                                      Load("cl"),
+   builder->                                      ConstInt64(typeDictionary()->OffsetOf("LClosure", "upvals"))),
+   builder->                                  ConstInt64(GETARG_B(instruction))))));
+
+   jit_setobj(builder,
+              builder->Load("ra"),
+              builder->Load("upval"));
+   return true;
+}
+
 bool Lua::FunctionBuilder::do_gettabup(TR::BytecodeBuilder* builder, Instruction instruction) {
    // upval = cl->upvals[GETARG_B(instruction)]->v
    auto pUpVal = typeDictionary()->PointerTo(luaTypes.UpVal);
@@ -1067,6 +1101,35 @@ bool Lua::FunctionBuilder::do_settabup(TR::BytecodeBuilder* builder, Instruction
    builder->           Load("upval"),
                        rb,
                        rc));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_setupval(TR::BytecodeBuilder* builder, Instruction instruction) {
+   auto pUpVal = typeDictionary()->PointerTo(luaTypes.UpVal);
+   auto ppUpVal = typeDictionary()->PointerTo(pUpVal);
+
+   //UpVal *uv = cl->upvals[GETARG_B(i)];
+   builder->Store("uv",
+   builder->      LoadAt(pUpVal,
+   builder->             IndexAt(ppUpVal,
+   builder->                     Add(
+   builder->                         Load("cl"),
+   builder->                         ConstInt64(typeDictionary()->OffsetOf("LClosure", "upvals"))),
+   builder->                     ConstInt64(GETARG_B(instruction)))));
+
+   builder->Store("upval",
+   builder->      LoadIndirect("UpVal", "v",
+   builder->                   Load("uv")));
+   //setobj(L, uv->v, ra);
+   jit_setobj(builder,
+              builder->Load("upval"),
+              builder->Load("ra"));
+
+   //luaC_upvalbarrier(L, uv);
+   builder->Call("jit_luaC_upvalbarrier", 2,
+   builder->     Load("L"),
+   builder->     Load("uv"));
 
    return true;
 }
