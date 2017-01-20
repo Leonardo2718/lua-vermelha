@@ -1542,6 +1542,8 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
    callinterpreter->Call("luaV_execute", 1,
    callinterpreter->     Load("L"));
 
+   jit_Protect(builder);
+
    return true;
 }
 
