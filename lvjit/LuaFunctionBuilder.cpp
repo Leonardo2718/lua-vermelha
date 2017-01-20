@@ -929,7 +929,7 @@ bool Lua::FunctionBuilder::buildIL() {
          nextBuilder = nullptr;
          break;
       case OP_EQ:
-         do_cmp("luaV_equalobj", builder, bytecodeBuilders[instructionIndex + 2], instruction);
+         do_eq(builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_LT:
          do_cmp("luaV_lessthan", builder, bytecodeBuilders[instructionIndex + 2], instruction);
@@ -1445,17 +1445,113 @@ bool Lua::FunctionBuilder::do_jmp(TR::BytecodeBuilder* builder, Instruction inst
    return true;
 }
 
-bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
-   /* cmp can be "luaV_equalobj", "luaV_lessthan", or "luaV_lessequal" */
+bool Lua::FunctionBuilder::do_eq(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
+   TR::IlValue *left = jit_RK(builder, GETARG_B(instruction));
+   TR::IlValue *right = jit_RK(builder, GETARG_C(instruction));
 
-   // cmp =  cmpFunc(L, RKB(i), RKC(i));
    builder->Store("cmp",
-   builder->      Call(cmpFunc, 3,
+   builder->      Call("luaV_equalobj", 3,
    builder->           Load("L"),
-                       jit_RK(builder, GETARG_B(instruction)),
-                       jit_RK(builder, GETARG_C(instruction))));
+                       left,
+                       right));
 
    jit_Protect(builder); // from code inspection it appears like the comparison call
+                         // is the only thing that needs to be Protected because it
+                         // calls `luaT_callTM`, which can reallocat the stack
+
+   // if (cmp != GETARG_A(i)) ci->u.l.savedpc++;
+   builder->IfCmpNotEqual(&dest,
+   builder->              Load("cmp"),
+   builder->              ConstInt32(GETARG_A(instruction)));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction) {
+   TR::IlValue *left = jit_RK(builder, GETARG_B(instruction));
+   TR::IlValue *right = jit_RK(builder, GETARG_C(instruction));
+
+   TR::IlBuilder *notnums = nullptr;
+
+   auto lefttype = builder->LoadIndirect("TValue", "tt_", left);
+   auto righttype = builder->LoadIndirect("TValue", "tt_", right);
+
+   // if (ttisinteger(rb) && ttisinteger(rc))
+   auto isleftint = jit_isinteger(builder, lefttype);
+   auto isrightint = jit_isinteger(builder, righttype);
+
+   TR::IlBuilder *cmpints = nullptr;
+   TR::IlBuilder *notints = nullptr;
+   builder->IfThenElse(&cmpints, &notints,
+   builder->           And(isleftint, isrightint));
+
+   // return (int)l [<,<=] (int)r
+   TR::IlValue *leftint = cmpints->LoadIndirect("TValue_i", "value_", left);
+   TR::IlValue *rightint = cmpints->LoadIndirect("TValue_i", "value_", right);
+
+   TR::IlBuilder *intle = nullptr;
+   TR::IlBuilder *intnotle = nullptr;
+   switch (GET_OPCODE(instruction)) {
+   case OP_LT:
+      // l < r is straight forward.
+      cmpints->IfThenElse(&intle, &intnotle,
+      cmpints->           LessThan(leftint, rightint));
+      break;
+   case OP_LE:
+      // l <= r can be replaced with !(l > r)
+      cmpints->IfThenElse(&intnotle, &intle,
+      cmpints->           GreaterThan(leftint, rightint));
+      break;
+   default:
+      break;
+   }
+
+   intle->Store("cmp",
+   intle->     ConstInt32(1));
+   intnotle->Store("cmp",
+   intnotle->     ConstInt32(0));
+
+   // else if (ttisnumber(rb) && ttisnumber(rc))
+   auto isleftnum = jit_isnumber(notints, lefttype);
+   auto isrightnum = jit_isnumber(notints, righttype);
+
+   TR::IlBuilder *cmpnums = nullptr;
+   notints->IfThenElse(&cmpnums, &notnums,
+   notints->           And(isleftnum, isrightnum));
+
+   // return (float)l [<,<=] (float)r
+   TR::IlValue *leftnum = jit_tonumber(cmpnums, left, lefttype);
+   TR::IlValue *rightnum = jit_tonumber(cmpnums, right, righttype);
+
+   TR::IlBuilder *numle = nullptr;
+   TR::IlBuilder *numnotle = nullptr;
+   switch (GET_OPCODE(instruction)) {
+   case OP_LT:
+      // l < r is straight forward.
+      cmpnums->IfThenElse(&numle, &numnotle,
+      cmpnums->           LessThan(leftnum, rightnum));
+      break;
+   case OP_LE:
+      // l <= r can be replaced with !(l > r)
+      cmpnums->IfThenElse(&numnotle, &numle,
+      cmpnums->           GreaterThan(leftnum, rightnum));
+      break;
+   default:
+      break;
+   }
+
+   numle->Store("cmp",
+   numle->     ConstInt32(1));
+   numnotle->Store("cmp",
+   numnotle->     ConstInt32(0));
+
+   notnums->Store("cmp",
+   notnums->      Call(cmpFunc, 3,
+   notnums->           Load("L"),
+                       left,
+                       right));
+
+   jit_Protect(notnums); // from code inspection it appears like the comparison call
                          // is the only thing that needs to be Protected because it
                          // calls `luaT_callTM`, which can reallocat the stack
 
@@ -1924,8 +2020,28 @@ TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlVa
    return builder->Load("num");
 }
 
+TR::IlValue* Lua::FunctionBuilder::jit_tointeger(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
+   auto isflt = builder->OrphanBuilder();
+   auto isint = builder->OrphanBuilder();
+
+   builder->IfThenElse(&isflt, &isint, jit_isfloat(builder, type));
+
+   isint->Store("int",
+   isint->      LoadIndirect("TValue_i", "value_", value));
+
+   isflt->Store("int",
+   isflt->      ConvertTo(luaTypes.lua_Integer,
+   isflt->                LoadIndirect("TValue_n", "value_", value)));
+
+   return builder->Load("int");
+}
+
 TR::IlValue* Lua::FunctionBuilder::jit_isinteger(TR::IlBuilder* builder, TR::IlValue* type) {
    return builder->EqualTo(type, intType);
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_isfloat(TR::IlBuilder* builder, TR::IlValue* type) {
+   return builder->EqualTo(type, fltType);
 }
 
 TR::IlValue* Lua::FunctionBuilder::jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type) {
