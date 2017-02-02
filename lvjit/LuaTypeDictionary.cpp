@@ -42,7 +42,6 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    auto lua_Hook_t = toIlType<void*>();          // is actually `void(*)(lua_State*, lua_Debug*)
    auto pInstruction = PointerTo(luaTypes.Instruction);
    auto lua_CFunction_t = toIlType<void*>();
-   auto pProto_t = toIlType<void*>();
 
    // struct TValue ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -93,6 +92,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    luaTypes.StkId = PointerTo("TValue"); // stack index
 
    luaTypes.Proto = DEFINE_STRUCT(Proto);
+   auto pProto = PointerTo("Proto");
    DEFINE_FIELD_T(Proto, sizep);
    DEFINE_FIELD(Proto, compiledcode, toIlType<void*>());
    DEFINE_FIELD_T(Proto, jitflags);
@@ -106,7 +106,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    DEFINE_FIELD(LClosure, marked, luaTypes.lu_byte);    //      |              |
    DEFINE_FIELD(LClosure, nupvalues, luaTypes.lu_byte); //      |
    DEFINE_FIELD(LClosure, gclist, pGCObject_t);         //      |
-   DEFINE_FIELD(LClosure, p, pProto_t);
+   DEFINE_FIELD(LClosure, p, pProto);
    DEFINE_FIELD(LClosure, upvals, toIlType<void*>());
    CLOSE_STRUCT(LClosure);
 
