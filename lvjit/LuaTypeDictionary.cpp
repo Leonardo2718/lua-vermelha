@@ -23,6 +23,8 @@
 
 #define DEFINE_FIELD_T(type, field) DEFINE_FIELD(type, field, toIlType<decltype(type::field)>())
 
+#define UNION_FIELD_T(type, field) UnionField(#type, #field, toIlType<decltype(type::field)>())
+
 Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    // common lua types
    luaTypes.lu_byte         = toIlType<lu_byte>();
@@ -39,9 +41,19 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    auto pLuaLongjmp = toIlType<void*>();
    auto lua_Hook_t = toIlType<void*>();          // is actually `void(*)(lua_State*, lua_Debug*)
    auto pInstruction = PointerTo(luaTypes.Instruction);
+   auto lua_CFunction_t = toIlType<void*>();
    auto pProto_t = toIlType<void*>();
 
    // struct TValue ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   luaTypes.Value = DefineUnion("Value");
+   UnionField("Value", "gc", pGCObject_t);      // collectable objects
+   UNION_FIELD_T(Value, p);                     // light usedata
+   UNION_FIELD_T(Value, b);                     // booleans
+   UnionField("Value", "f", lua_CFunction_t);   // light C functions
+   UNION_FIELD_T(Value, i);                     // integer numbers
+   UNION_FIELD_T(Value, n);                     // float numbers
+   CloseUnion("Value");
 
    /*
    The struct `TValue` is a tagged union. Because JitBuilder does not currently
