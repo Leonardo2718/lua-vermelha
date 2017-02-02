@@ -45,6 +45,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
 
    // lobject.h types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+   // union Value
    luaTypes.Value = DefineUnion("Value");
    UnionField("Value", "gc", pGCObject_t);      // collectable objects
    UNION_FIELD_T(Value, p);                     // light usedata
@@ -62,6 +63,7 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
 
    luaTypes.StkId = PointerTo("TValue"); // stack index
 
+   // struct Proto
    luaTypes.Proto = DEFINE_STRUCT(Proto);
    auto pProto = PointerTo("Proto");
    DEFINE_FIELD_T(Proto, sizep);
