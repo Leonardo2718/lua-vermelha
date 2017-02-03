@@ -107,6 +107,11 @@ public:
     TR::IlValue* jit_isfloat(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type);
 
+    // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    TR::IlValue* StructFieldAddress(TR::IlBuilder* builder, const char* structName, const char* fieldName, TR::IlValue* obj);
+    TR::IlValue* UnionFieldAddress(TR::IlBuilder* builder, const char* unionName, const char* fieldName, TR::IlValue* obj);
+
 private:
     Proto* prototype;
     TR::IlValue *intType;

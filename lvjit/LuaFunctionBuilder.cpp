@@ -2047,3 +2047,19 @@ TR::IlValue* Lua::FunctionBuilder::jit_isfloat(TR::IlBuilder* builder, TR::IlVal
 TR::IlValue* Lua::FunctionBuilder::jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type) {
    return builder->And(type, numType);
 }
+
+// jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TR::IlValue* Lua::FunctionBuilder::StructFieldAddress(TR::IlBuilder* builder, const char* structName, const char* fieldName, TR::IlValue* obj) {
+   auto offset = typeDictionary()->OffsetOf(structName, fieldName);
+   auto ptype = typeDictionary()->PointerTo(typeDictionary()->GetFieldType(structName, fieldName));
+   auto addr = builder->Add(
+                                 obj,
+                    builder->    ConstInt64(offset));
+   return builder->ConvertTo(ptype, addr);
+}
+
+TR::IlValue* Lua::FunctionBuilder::UnionFieldAddress(TR::IlBuilder* builder, const char* unionName, const char* fieldName, TR::IlValue* obj) {
+   auto ptype = typeDictionary()->PointerTo(typeDictionary()->GetFieldType(unionName, fieldName));
+   return builder->ConvertTo(ptype, obj);
+}
