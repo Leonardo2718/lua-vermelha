@@ -1812,9 +1812,9 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::Bytecode
    builder->           And(isindexint,
    builder->           And(islimitint, isstepint)));
 
-   TR::IlValue *indexValue = intloop->LoadIndirect("TValue_i", "value_", index);
-   TR::IlValue *limitValue = intloop->LoadIndirect("TValue_i", "value_", limit);
-   TR::IlValue *stepValue = intloop->LoadIndirect("TValue_i", "value_", step);
+   TR::IlValue *indexValue = intloop->LoadIndirect("Value", "i", StructFieldAddress(intloop, "TValue", "value_", index));
+   TR::IlValue *limitValue = intloop->LoadIndirect("Value", "i", StructFieldAddress(intloop, "TValue", "value_", limit));
+   TR::IlValue *stepValue = intloop->LoadIndirect("Value", "i", StructFieldAddress(intloop, "TValue", "value_", step));
    TR::IlValue *nextIndexValue = intloop->Add(indexValue, stepValue);
 
    //if ((0 < step) ? (idx <= limit) : (limit <= idx))
@@ -1835,10 +1835,10 @@ bool Lua::FunctionBuilder::do_forloop(TR::BytecodeBuilder* builder, TR::Bytecode
    breakLoopInt->Store("continueLoop",
    breakLoopInt->      ConstInt32(0));
 
-   continueLoopInt->StoreIndirect("TValue_i", "value_", index, nextIndexValue);
+   continueLoopInt->StoreIndirect("Value", "i", StructFieldAddress(continueLoopInt, "TValue", "value_", index), nextIndexValue);
    /* Do NOT have to set type on "index" as it is already an int */
-   continueLoopInt->StoreIndirect("TValue_i", "value_", externalIndex, nextIndexValue);
-   continueLoopInt->StoreIndirect("TValue_i", "tt_", externalIndex, intType);
+   continueLoopInt->StoreIndirect("Value", "i", StructFieldAddress(continueLoopInt, "TValue", "value_", externalIndex), nextIndexValue);
+   continueLoopInt->StoreIndirect("TValue", "tt_", externalIndex, intType);
    continueLoopInt->Store("continueLoop",
    continueLoopInt->      ConstInt32(1));
 
@@ -1869,10 +1869,10 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
    builder->           And(isindexint,
    builder->               And(islimitint, isstepint)));
 
-   TR::IlValue *indexValue = intloop->LoadIndirect("TValue_i", "value_", index);
-   TR::IlValue *stepValue = intloop->LoadIndirect("TValue_i", "value_", step);
+   TR::IlValue *indexValue = intloop->LoadIndirect("Value", "i", StructFieldAddress(intloop, "TValue", "value_", index));
+   TR::IlValue *stepValue = intloop->LoadIndirect("Value", "i", StructFieldAddress(intloop, "TValue", "value_", step));
    TR::IlValue *startIndex = intloop->Sub(indexValue, stepValue);
-   intloop->StoreIndirect("TValue_i", "value_", index, startIndex);
+   intloop->StoreIndirect("Value", "i", StructFieldAddress(intloop, "TValue", "value_", index), startIndex);
 
    notints->Call("vm_forprep", 2,
    notints->     Load("L"),
