@@ -87,7 +87,9 @@ public:
 
     bool do_forloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction);
     bool do_forprep(TR::BytecodeBuilder* builder, Instruction instruction);
-    
+
+    bool do_closure(TR::BytecodeBuilder* builder, Instruction instruction);
+
     bool do_vararg(TR::BytecodeBuilder* builder, Instruction instruction);
 
     // convenience functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

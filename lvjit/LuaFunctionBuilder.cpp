@@ -72,6 +72,41 @@ static int forlimit (const TValue *obj, lua_Integer *p, lua_Integer step,
   return 1;
 }
 
+static LClosure *getcached (Proto *p, UpVal **encup, StkId base) {
+  LClosure *c = p->cache;
+  if (c != NULL) {  /* is there a cached closure? */
+    int nup = p->sizeupvalues;
+    Upvaldesc *uv = p->upvalues;
+    int i;
+    for (i = 0; i < nup; i++) {  /* check whether it has right upvalues */
+      TValue *v = uv[i].instack ? base + uv[i].idx : encup[uv[i].idx]->v;
+      if (c->upvals[i]->v != v)
+        return NULL;  /* wrong upvalue; cannot reuse closure */
+    }
+  }
+  return c;  /* return cached closure (or NULL if no cached closure) */
+}
+
+static void pushclosure (lua_State *L, Proto *p, UpVal **encup, StkId base,
+                         StkId ra) {
+  int nup = p->sizeupvalues;
+  Upvaldesc *uv = p->upvalues;
+  int i;
+  LClosure *ncl = luaF_newLclosure(L, nup);
+  ncl->p = p;
+  setclLvalue(L, ra, ncl);  /* anchor new closure in stack */
+  for (i = 0; i < nup; i++) {  /* fill in its upvalues */
+    if (uv[i].instack)  /* upvalue refers to local variable? */
+      ncl->upvals[i] = luaF_findupval(L, base + uv[i].idx);
+    else  /* get upvalue from enclosing function */
+      ncl->upvals[i] = encup[uv[i].idx];
+    ncl->upvals[i]->refcount++;
+    /* new closure is white, so we do not need a barrier here */
+  }
+  if (!isblack(p))  /* cache will not break GC invariant? */
+    p->cache = ncl;  /* save it on cache for reuse */
+}
+
 #define Protect(x)	{ {x;}; base = ci->u.l.base; }
 
 #define RA(i)	(base+GETARG_A(i))
@@ -608,6 +643,26 @@ void vm_forprep(lua_State* L, Instruction i) {
    // epilogue
 }
 
+StkId vm_closure(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   Proto *p = cl->p->p[GETARG_Bx(i)];
+   LClosure *ncl = getcached(p, cl->upvals, base);  /* cached closure */
+   if (ncl == NULL)  /* no match? */
+     pushclosure(L, p, cl->upvals, base, ra);  /* create a new one */
+   else
+     setclLvalue(L, ra, ncl);  /* push cashed closure */
+   checkGC(L, ra + 1);
+
+   // epilogue
+   return base;
+}
+
 
 //~ general IL generation ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -850,6 +905,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   NoType, 2,
                   plua_State,
                   luaTypes.Instruction);
+
+   DefineFunction("vm_closure", __FILE__, "0", (void*)vm_closure,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
 }
 
 bool Lua::FunctionBuilder::buildIL() {
@@ -1012,6 +1072,9 @@ bool Lua::FunctionBuilder::buildIL() {
          do_forprep(builder, instruction);
          builder->AddFallThroughBuilder(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
+         break;
+      case OP_CLOSURE:
+         do_closure(builder, instruction);
          break;
       case OP_VARARG:
          do_vararg(builder, instruction);
@@ -1917,6 +1980,15 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
    notints->Call("vm_forprep", 2,
    notints->     Load("L"),
    notints->     ConstInt32(instruction));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_closure(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_closure", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
 
    return true;
 }
