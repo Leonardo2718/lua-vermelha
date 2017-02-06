@@ -30,7 +30,19 @@
 //~ convenience functions to be called from JITed code ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 static void printAddr(void* addr) {
-   printf("Compiled! (%p)\n", addr);
+   printf("\t%p\n", addr);
+}
+
+static void printInt(int n) {
+   printf("\t%d\n", n);
+}
+
+static void printFloat(float n) {
+   printf("\t%f\n", n);
+}
+
+static void printDouble(double n) {
+   printf("\t%f\n", n);
 }
 
 
@@ -608,6 +620,18 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   NoType, 1,
                   types->toIlType<void*>());
 
+   DefineFunction("printInt", __FILE__, "0", (void*)printInt,
+                  NoType, 1,
+                  types->toIlType<int>());
+
+   DefineFunction("printFloat", __FILE__, "0", (void*)printFloat,
+                  NoType, 1,
+                  types->toIlType<float>());
+
+   DefineFunction("printDouble", __FILE__, "0", (void*)printDouble,
+                  NoType, 1,
+                  types->toIlType<double>());
+
    DefineFunction("compiledbody", "0", "0", nullptr,
                   NoType, 1,
                   plua_State);
@@ -1164,6 +1188,9 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    auto rctype = builder->LoadIndirect("TValue", "tt_", rc);
    auto isrcint = jit_isinteger(builder, rctype);
 
+   auto rb_value = StructFieldAddress(builder, "TValue", "value_", rb);
+   auto rc_value = StructFieldAddress(builder, "TValue", "value_", rc);
+
    auto ints = builder->OrphanBuilder();
    auto notints = builder->OrphanBuilder();
    builder->IfThenElse(&ints, &notints,
@@ -1171,8 +1198,8 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
 
    // lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
    // setivalue(ra, intop([+,-,*], ib, ic));
-   TR::IlValue *rbint = ints->LoadIndirect("TValue_i", "value_", rb);
-   TR::IlValue *rcint = ints->LoadIndirect("TValue_i", "value_", rc);
+   TR::IlValue *rbint = ints->LoadIndirect("Value", "i", rb_value);
+   TR::IlValue *rcint = ints->LoadIndirect("Value", "i", rc_value);
    TR::IlValue *intresult = nullptr;
    switch (GET_OPCODE(instruction)) {
    case OP_ADD:
@@ -1188,10 +1215,11 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
       break;
    }
 
-   ints->StoreIndirect("TValue_i", "value_",
-   ints->              Load("ra"),
+   ints->StoreIndirect("Value", "i",
+                       StructFieldAddress(ints, "TValue", "value_",
+   ints->                                 Load("ra")),
                        intresult);
-   ints->StoreIndirect("TValue_i", "tt_",
+   ints->StoreIndirect("TValue", "tt_",
    ints->              Load("ra"),
                        intType);
 
@@ -1207,6 +1235,7 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    // setfltvalue(ra, luai_num[add,sub,mul](L,tonumber(rb), tonumber(rc)));
    TR::IlValue *rbnum = jit_tonumber(nums, rb, rbtype);
    TR::IlValue *rcnum = jit_tonumber(nums, rc, rctype);
+
    TR::IlValue *numresult = nullptr;
    switch (GET_OPCODE(instruction)) {
    case OP_ADD:
@@ -1221,10 +1250,11 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    default:
       break;
    }
-   nums->StoreIndirect("TValue_n", "value_",
-   nums->              Load("ra"),
+   nums->StoreIndirect("Value", "n",
+                       StructFieldAddress(nums, "TValue", "value_",
+   nums->                                 Load("ra")),
                        numresult);
-   nums->StoreIndirect("TValue_n", "tt_",
+   nums->StoreIndirect("TValue", "tt_",
    nums->              Load("ra"),
                        fltType);
 
@@ -1293,10 +1323,11 @@ bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction inst
    auto result = nums->Div(
                  jit_tonumber(nums, rb, rbtype),
                  jit_tonumber(nums, rc, rctype));
-   nums->StoreIndirect("TValue_n", "value_",
-   nums->              Load("ra"),
+   nums->StoreIndirect("Value", "n",
+                       StructFieldAddress(nums, "TValue", "value_",
+   nums->                                 Load("ra")),
                        result);
-   nums->StoreIndirect("TValue_n", "tt_",
+   nums->StoreIndirect("TValue", "tt_",
    nums->             Load("ra"),
                       fltType);
 
@@ -2007,15 +2038,16 @@ applying a conversion if needed.
 TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
    auto isnum = builder->OrphanBuilder();
    auto isint = builder->OrphanBuilder();
+   auto v = StructFieldAddress(builder, "TValue", "value_", value);
 
    builder->IfThenElse(&isint, &isnum, jit_isinteger(builder, type));
 
    isnum->Store("num",
-   isnum->      LoadIndirect("TValue_n", "value_", value));
+   isnum->      LoadIndirect("Value", "n", v));
 
    isint->Store("num",
    isint->      ConvertTo(luaTypes.lua_Number,
-   isint->                LoadIndirect("TValue_i", "value_", value)));
+   isint->                LoadIndirect("Value", "i", v)));
 
    return builder->Load("num");
 }
