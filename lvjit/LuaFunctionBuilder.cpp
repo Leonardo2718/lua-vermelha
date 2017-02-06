@@ -643,6 +643,35 @@ void vm_forprep(lua_State* L, Instruction i) {
    // epilogue
 }
 
+void vm_setlist(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   //LClosure *cl = clLvalue(ci->func);
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   int n = GETARG_B(i);
+   int c = GETARG_C(i);
+   unsigned int last;
+   Table *h;
+   if (n == 0) n = cast_int(L->top - ra) - 1;
+   if (c == 0) {
+     lua_assert(GET_OPCODE(*ci->u.l.savedpc) == OP_EXTRAARG);
+     c = GETARG_Ax(*ci->u.l.savedpc++);
+   }
+   h = hvalue(ra);
+   last = ((c-1)*LFIELDS_PER_FLUSH) + n;
+   if (last > h->sizearray)  /* needs more space? */
+     luaH_resizearray(L, h, last);  /* preallocate it at once */
+   for (; n > 0; n--) {
+     TValue *val = ra+n;
+     luaH_setint(L, h, last--, val);
+     luaC_barrierback(L, h, val);
+   }
+   L->top = ci->top;  /* correct top (in case of previous open call) */
+}
+
 StkId vm_closure(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -906,6 +935,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   plua_State,
                   luaTypes.Instruction);
 
+   DefineFunction("vm_setlist", __FILE__, "0", (void*)vm_setlist,
+                  NoType, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
    DefineFunction("vm_closure", __FILE__, "0", (void*)vm_closure,
                   luaTypes.StkId, 2,
                   plua_State,
@@ -1072,6 +1106,9 @@ bool Lua::FunctionBuilder::buildIL() {
          do_forprep(builder, instruction);
          builder->AddFallThroughBuilder(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
+         break;
+      case OP_SETLIST:
+         do_setlist(builder, instruction);
          break;
       case OP_CLOSURE:
          do_closure(builder, instruction);
@@ -1980,6 +2017,14 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
    notints->Call("vm_forprep", 2,
    notints->     Load("L"),
    notints->     ConstInt32(instruction));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_setlist(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Call("vm_setlist", 2,
+   builder->     Load("L"),
+   builder->     ConstInt32(instruction));
 
    return true;
 }
