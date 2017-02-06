@@ -58,6 +58,8 @@ public:
 
     bool do_newtable(TR::BytecodeBuilder* builder, Instruction instruction);
 
+    bool do_self(TR::BytecodeBuilder* builder, Instruction instruction);
+
     bool do_math(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_mod(TR::BytecodeBuilder* builder, Instruction instruction);
     bool do_pow(TR::BytecodeBuilder* builder, Instruction instruction);

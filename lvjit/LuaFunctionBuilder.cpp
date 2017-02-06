@@ -203,6 +203,29 @@ StkId vm_newtable(lua_State* L, Instruction i) {
    return base;
 }
 
+StkId vm_self(lua_State* L, Instruction i) {
+   // prologue
+   CallInfo *ci = L->ci;
+   LClosure *cl = clLvalue(ci->func);
+   TValue *k = cl->p->k;
+   StkId base = ci->u.l.base;
+   StkId ra = RA(i);
+
+   // main body
+   const TValue *aux;
+   StkId rb = RB(i);
+   TValue *rc = RKC(i);
+   TString *key = tsvalue(rc);  /* key must be a string */
+   setobjs2s(L, ra + 1, rb);
+   if (luaV_fastget(L, rb, key, aux, luaH_getstr)) {
+     setobj2s(L, ra, aux);
+   }
+   else Protect(luaV_finishget(L, rb, rc, ra, aux));
+
+   // epilogue
+   return base;
+}
+
 StkId vm_mod(lua_State* L, Instruction i) {
    // prologue
    CallInfo *ci = L->ci;
@@ -738,6 +761,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   plua_State,
                   luaTypes.Instruction);
 
+   DefineFunction("vm_self", __FILE__, "0", (void*)vm_self,
+                  luaTypes.StkId, 2,
+                  plua_State,
+                  luaTypes.Instruction);
+
    DefineFunction("vm_mod", __FILE__, "0", (void*)vm_mod,
                   luaTypes.StkId, 2,
                   plua_State,
@@ -895,6 +923,9 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_NEWTABLE:
          do_newtable(builder, instruction);
+            break;
+      case OP_SELF:
+         do_self(builder, instruction);
          break;
       case OP_ADD:
          do_math(builder, instruction);
@@ -1170,6 +1201,15 @@ bool Lua::FunctionBuilder::do_settable(TR::BytecodeBuilder* builder, Instruction
 bool Lua::FunctionBuilder::do_newtable(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Store("base",
    builder->      Call("vm_newtable", 2,
+   builder->           Load("L"),
+   builder->           ConstInt32(instruction)));
+
+   return true;
+}
+
+bool  Lua::FunctionBuilder::do_self(TR::BytecodeBuilder* builder, Instruction instruction) {
+   builder->Store("base",
+   builder->      Call("vm_self", 2,
    builder->           Load("L"),
    builder->           ConstInt32(instruction)));
 
