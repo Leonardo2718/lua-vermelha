@@ -758,6 +758,12 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.StkId,
                   Int32);
 
+   DefineFunction("luaD_call", "ldo.c", "492", (void*)luaD_call,
+                  NoType, 3,
+                  plua_State,
+                  luaTypes.StkId,
+                  types->toIlType<int>());
+
    DefineFunction("luaV_execute", "lvm.c", "790", (void*)luaV_execute,
                   NoType, 1,
                   plua_State);
@@ -1106,6 +1112,15 @@ bool Lua::FunctionBuilder::buildIL() {
          do_forprep(builder, instruction);
          builder->AddFallThroughBuilder(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
+         break;
+      case OP_TFORCALL:
+         do_tforcall(builder, instruction);
+         if (GET_OPCODE(instructions[instructionIndex + 1]) != OP_TFORLOOP) return false;
+         break;
+      case OP_TFORLOOP:
+         bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]->setVMState(new OMR::VirtualMachineState{});
+         addBytecodeBuilderToWorklist(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
+         do_tforloop(builder, bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          break;
       case OP_SETLIST:
          do_setlist(builder, instruction);
@@ -2021,6 +2036,81 @@ bool Lua::FunctionBuilder::do_forprep(TR::BytecodeBuilder* builder, Instruction 
    return true;
 }
 
+bool Lua::FunctionBuilder::do_tforcall(TR::BytecodeBuilder* builder, Instruction instruction) {
+   // StkId cb = ra + 3;  /* call base */
+   builder->Store("cb",
+   builder->      IndexAt(luaTypes.StkId,
+   builder->              Load("ra"),
+   builder->              ConstInt32(3)));
+
+   // setobjs2s(L, cb+2, ra+2);
+   // setobjs2s(L, cb+1, ra+1);
+   // setobjs2s(L, cb, ra);
+   jit_setobj(builder,
+   builder->  IndexAt(luaTypes.StkId,
+   builder->          Load("cb"),
+   builder->          ConstInt32(2)),
+   builder->  IndexAt(luaTypes.StkId,
+   builder->          Load("ra"),
+   builder->          ConstInt32(2)));
+   jit_setobj(builder,
+   builder->  IndexAt(luaTypes.StkId,
+   builder->          Load("cb"),
+   builder->          ConstInt32(1)),
+   builder->  IndexAt(luaTypes.StkId,
+   builder->          Load("ra"),
+   builder->          ConstInt32(1)));
+   jit_setobj(builder,
+   builder->  Load("cb"),
+   builder->  Load("ra"));
+
+   // L->top = cb + 3;  /* func. + 2 args (state and index) */
+   builder->StoreIndirect("lua_State", "top",
+   builder->              Load("L"),
+   builder->              IndexAt(luaTypes.StkId,
+   builder->                      Load("cb"),
+   builder->                      ConstInt32(3)));
+
+   // Protect(luaD_call(L, cb, GETARG_C(i)));
+   builder->Call("luaD_call", 3,
+   builder->     Load("L"),
+   builder->     Load("cb"),
+   builder->     ConstInt32(GETARG_C(instruction)));
+   jit_Protect(builder);
+
+   // L->top = ci->top;
+   builder->StoreIndirect("lua_State", "top",
+   builder->              Load("L"),
+   builder->              LoadIndirect("CallInfo", "top",
+   builder->                           Load("ci")));
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_tforloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart) {
+   // if (!ttisnil(ra + 1)) /* continue loop? */
+   TR::IlBuilder* continueLoop = nullptr;
+   //builder->Call("printInt", 1,
+   //builder->     );
+   builder->IfThen(&continueLoop,
+                   jit_ttnotnil(builder,
+   builder->                   IndexAt(luaTypes.StkId,
+   builder->                           Load("ra"),
+   builder->                           Const(1))));
+
+   // setobjs2s(L, ra, ra + 1);  /* save control variable */
+   jit_setobj(continueLoop,
+   continueLoop->Load("ra"),
+   continueLoop->           IndexAt(luaTypes.StkId,
+   continueLoop->                   Load("ra"),
+   continueLoop->                   Const(1)));
+
+   // jump back
+   continueLoop->Goto(&loopStart);
+
+   return true;
+}
+
 bool Lua::FunctionBuilder::do_setlist(TR::BytecodeBuilder* builder, Instruction instruction) {
    builder->Call("vm_setlist", 2,
    builder->     Load("L"),
@@ -2235,6 +2325,12 @@ TR::IlValue* Lua::FunctionBuilder::jit_isfloat(TR::IlBuilder* builder, TR::IlVal
 
 TR::IlValue* Lua::FunctionBuilder::jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type) {
    return builder->And(type, numType);
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_ttnotnil(TR::IlBuilder* builder, TR::IlValue* value) {
+   return builder->NotEqualTo(
+          builder->        LoadIndirect("TValue", "tt_", value),
+          builder->        Const(LUA_TNIL));
 }
 
 // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

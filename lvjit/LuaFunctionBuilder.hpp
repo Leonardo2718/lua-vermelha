@@ -88,6 +88,9 @@ public:
     bool do_forloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction);
     bool do_forprep(TR::BytecodeBuilder* builder, Instruction instruction);
 
+    bool do_tforcall(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_tforloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart);
+
     bool do_setlist(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_closure(TR::BytecodeBuilder* builder, Instruction instruction);
@@ -112,6 +115,7 @@ public:
     TR::IlValue* jit_isinteger(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_isfloat(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type);
+    TR::IlValue* jit_ttnotnil(TR::IlBuilder* builder, TR::IlValue* value);
 
     // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
