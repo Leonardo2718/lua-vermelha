@@ -1672,8 +1672,10 @@ bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* buil
    builder->           And(isleftint, isrightint));
 
    // return (int)l [<,<=] (int)r
-   TR::IlValue *leftint = cmpints->LoadIndirect("TValue_i", "value_", left);
-   TR::IlValue *rightint = cmpints->LoadIndirect("TValue_i", "value_", right);
+   TR::IlValue *leftint = cmpints->LoadIndirect("Value", "i",
+                                   StructFieldAddress(cmpints, "TValue", "value_", left));
+   TR::IlValue *rightint = cmpints->LoadIndirect("Value", "i",
+                                    StructFieldAddress(cmpints, "TValue", "value_", right));
 
    TR::IlBuilder *intle = nullptr;
    TR::IlBuilder *intnotle = nullptr;
