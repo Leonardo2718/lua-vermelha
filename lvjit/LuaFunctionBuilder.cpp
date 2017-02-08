@@ -2304,15 +2304,16 @@ TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlVa
 TR::IlValue* Lua::FunctionBuilder::jit_tointeger(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
    auto isflt = builder->OrphanBuilder();
    auto isint = builder->OrphanBuilder();
+   auto v = StructFieldAddress(builder, "TValue", "value_", value);
 
    builder->IfThenElse(&isflt, &isint, jit_isfloat(builder, type));
 
    isint->Store("int",
-   isint->      LoadIndirect("TValue_i", "value_", value));
+   isint->      LoadIndirect("Value", "i", v));
 
    isflt->Store("int",
    isflt->      ConvertTo(luaTypes.lua_Integer,
-   isflt->                LoadIndirect("TValue_n", "value_", value)));
+   isflt->                LoadIndirect("Value", "n", v)));
 
    return builder->Load("int");
 }
