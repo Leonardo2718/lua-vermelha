@@ -6,9 +6,9 @@
 # Your platform. See PLATS for possible values.
 PLAT= none
 
-CC= gcc -std=gnu99
-CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 $(SYSCFLAGS) $(MYCFLAGS)
-LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
+CC= /home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-gcc -std=gnu99
+CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 $(SYSCFLAGS) $(MYCFLAGS) -I/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/include
+LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS) -L/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/lib
 LIBS= -lm $(SYSLIBS) $(MYLIBS)
 
 AR= ar rcu

@@ -17,8 +17,8 @@
 #
 ################################################################################
 
-CC?= gcc
-CXX?= g++
+CC= /home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-gcc
+CXX= /home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-g++
 
 BUILD_CONFIG?= opt
 
@@ -63,7 +63,7 @@ all: $(LUAV)
 
 
 $(LUAV): $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(LVJIT_LIBPATH) $(JITBUILDER_LIBPATH)
-	$(CXX) -o $@ $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(LVJIT_LIBPATH) $(JITBUILDER_LIBPATH) -ldl -lm -Wl,-E -lreadline
+	$(CXX) -o $@ $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(LVJIT_LIBPATH) $(JITBUILDER_LIBPATH) -L/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/lib -ldl -lm -Wl,-E -lreadline
 
 $(LUA_DIR)/lua.o:
 	cd $(LUA_DIR) && $(MAKE) lua.o SYSCFLAGS="-DLUA_USE_LINUX" MYCFLAGS="$(LUA_BUILD_CONFIG_FLAGS)"
@@ -74,7 +74,7 @@ $(LVJIT_LIBPATH):
 	cd $(LVJIT_DIR) && $(MAKE) $@ CXX="$(CXX)" CXX_FLAGS_EXTRA="-fpermissive -DLUA_C_LINKAGE $(LVJIT_BUILD_CONFIG_FLAGS)"
 
 $(JITBUILDER_LIBPATH):
-	cd $(JITBUILDER_DIR) && $(MAKE) CXX="$(CXX)" CXX_FLAGS_EXTRA="$(JITBUILDER_BUILD_CONFIG_FLAGS)" $(JITBUILDER_BUILD_CONFIG_VARS)
+	cd $(JITBUILDER_DIR) && $(MAKE) CXX_PATH="/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-g++" AR_PATH="/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-ar" CXX_FLAGS_EXTRA="-I/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/include -L/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/lib $(JITBUILDER_BUILD_CONFIG_FLAGS)" PLATFORM=arm-linux-gcc $(JITBUILDER_BUILD_CONFIG_VARS)
 
 
 # clean rules

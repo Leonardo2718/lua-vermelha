@@ -17,9 +17,9 @@
 #
 ################################################################################
 
-CXX?= g++
-AR?= ar
-LD?= ld
+CXX= /home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-g++
+AR= /home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-ar
+LD= /home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-ld
 MKDIR?= mkdir -p
 
 ARCH?= x
@@ -29,7 +29,7 @@ STATICLIB_NAME?= liblvjit.a
 LVJITOBJ_NAME?= lvjit.o
 SHAREDLIB_NAME?= liblvjit.so
 
-CXX_FLAGS= -std=c++0x -fno-rtti -W -Wall -Wextra -fPIC $(CXX_FLAGS_EXTRA) $(addprefix -I,$(IPATH))
+CXX_FLAGS= -std=c++0x -fno-rtti -W -Wall -Wextra -fPIC $(CXX_FLAGS_EXTRA) $(addprefix -I,$(IPATH)) -I/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/include -L/home/leonardo/x-tools/armv7-rpi2-linux-gnueabihf/lib
 
 # path definitions
 
