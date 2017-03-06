@@ -1167,26 +1167,39 @@ void luaV_execute (lua_State *L) {
         if (luaD_precall(L, ra, LUA_MULTRET)) {  /* C function? */
           Protect((void)0);  /* update 'base' */
         }
-        else {
-          /* tail call: put called frame (n) in place of caller one (o) */
-          CallInfo *nci = L->ci;  /* called frame */
-          CallInfo *oci = nci->previous;  /* caller frame */
-          StkId nfunc = nci->func;  /* called function */
-          StkId ofunc = oci->func;  /* caller function */
-          /* last stack slot filled by 'precall' */
-          StkId lim = nci->u.l.base + getproto(nfunc)->numparams;
-          int aux;
-          /* close all upvalues from previous call */
-          if (cl->p->sizep > 0) luaF_close(L, oci->u.l.base);
-          /* move new frame into old one */
-          for (aux = 0; nfunc + aux < lim; aux++)
-            setobjs2s(L, ofunc + aux, nfunc + aux);
-          oci->u.l.base = ofunc + (nci->u.l.base - nfunc);  /* correct base */
-          oci->top = L->top = ofunc + (L->top - nfunc);  /* correct top */
-          oci->u.l.savedpc = nci->u.l.savedpc;
-          oci->callstatus |= CIST_TAIL;  /* function was tail called */
-          ci = L->ci = oci;  /* remove new frame */
-          lua_assert(L->top == oci->u.l.base + getproto(ofunc)->maxstacksize);
+        else {/* dispatch the JIT */
+          Proto* p = getproto(L->ci->func);
+          if (!(p->jitflags & LUA_JITBLACKLIST) &&  /* is not blacklisted */
+              p->callcounter == 0 &&             /* called enough times */
+              p->compiledcode == NULL) {         /* not yet compiled */
+             luaJ_compile(p);
+             LUAJ_BLACKLIST(p);
+          }
+          if (p->compiledcode) {
+             p->compiledcode(L);
+             ci = L->ci;
+          }
+          else {
+             /* tail call: put called frame (n) in place of caller one (o) */
+             CallInfo *nci = L->ci;  /* called frame */
+             CallInfo *oci = nci->previous;  /* caller frame */
+             StkId nfunc = nci->func;  /* called function */
+             StkId ofunc = oci->func;  /* caller function */
+             /* last stack slot filled by 'precall' */
+             StkId lim = nci->u.l.base + getproto(nfunc)->numparams;
+             int aux;
+             /* close all upvalues from previous call */
+             if (cl->p->sizep > 0) luaF_close(L, oci->u.l.base);
+             /* move new frame into old one */
+             for (aux = 0; nfunc + aux < lim; aux++)
+               setobjs2s(L, ofunc + aux, nfunc + aux);
+             oci->u.l.base = ofunc + (nci->u.l.base - nfunc);  /* correct base */
+             oci->top = L->top = ofunc + (L->top - nfunc);  /* correct top */
+             oci->u.l.savedpc = nci->u.l.savedpc;
+             oci->callstatus |= CIST_TAIL;  /* function was tail called */
+             ci = L->ci = oci;  /* remove new frame */
+             lua_assert(L->top == oci->u.l.base + getproto(ofunc)->maxstacksize);
+          }
           goto newframe;  /* restart luaV_execute over new Lua function */
         }
         vmbreak;
