@@ -83,6 +83,7 @@ public:
     bool do_testset(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
 
     bool do_call(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_tailcall(TR::BytecodeBuilder* builder, Instruction instruction, unsigned int instructionIndex);
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_forloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction);

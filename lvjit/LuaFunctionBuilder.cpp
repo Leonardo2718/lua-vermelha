@@ -1101,6 +1101,10 @@ bool Lua::FunctionBuilder::buildIL() {
       case OP_CALL:
          do_call(builder, instruction);
          break;
+      case OP_TAILCALL:
+         do_tailcall(builder, instruction, instructionIndex);
+         nextBuilder = nullptr;   // prevent addition of a fallthrough path
+         break;
       case OP_RETURN:
          do_return(builder, instruction);
          nextBuilder = nullptr;   // prevent addition of a fallthrough path
@@ -1890,6 +1894,23 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
    callinterpreter->     Load("L"));
 
    jit_Protect(builder);
+
+   return true;
+}
+
+bool Lua::FunctionBuilder::do_tailcall(TR::BytecodeBuilder* builder, Instruction instruction, unsigned int instructionIndex) {
+   /* A clever (naive?) way of implementing tail-calls is just punt to the
+    * interpreter. This turns out to be easy because we don't have to handle
+    * comming back to the caller's frame. We just need to make sure the
+    * `saved-pc` is pointing to the correct instruction.
+    */
+
+   // ci->u.l.savedpc = prototype->code + instructionIndex
+   builder->StoreIndirect("CallInfo", "u.l.savedpc",
+   builder->              Load("ci"),
+   builder->              ConstAddress((void*)(prototype->code + instructionIndex)));
+
+   builder->Return();
 
    return true;
 }
