@@ -1856,7 +1856,7 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
    luaFunc->EqualTo(
    luaFunc->        LoadIndirect("Proto", "compiledcode",
    luaFunc->                     Load("p")),
-   luaFunc->        ConstInt32(0));
+   luaFunc->        ConstAddress(NULL));
    auto readycompile =
    luaFunc->And(notblacklisted,
    luaFunc->    And(callcounter0, isnotcompiled));
@@ -1882,7 +1882,7 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
    luaFunc->           NotEqualTo(
    luaFunc->           LoadIndirect("Proto", "compiledcode",
    luaFunc->                        Load("p")),
-   luaFunc->           ConstInt32(0)));
+   luaFunc->           ConstAddress(NULL)));
 
    callcompiled->ComputedCall("compiledbody", 2,
    callcompiled->             LoadIndirect("Proto", "compiledcode",
