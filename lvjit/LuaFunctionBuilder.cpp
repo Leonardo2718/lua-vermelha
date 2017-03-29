@@ -785,6 +785,11 @@ Lua::FunctionBuilder::FunctionBuilder(Proto* p, Lua::TypeDictionary* types)
                   luaTypes.StkId,
                   luaTypes.TMS);
 
+   DefineFunction("luaO_str2num", "lobject.c", "331", (void*)luaO_str2num,
+                  types->toIlType<size_t>(), 2,
+                  types->toIlType<const char *>(),
+                  pTValue);
+
    DefineFunction("luaV_equalobj", "lvm.c", "409", (void*)luaV_equalobj,
                   types->toIlType<int>(), 3,
                   plua_State,
@@ -973,6 +978,7 @@ bool Lua::FunctionBuilder::buildIL() {
    intType = ConstInt32(LUA_TNUMINT);
    fltType = ConstInt32(LUA_TNUMFLT);
    numType = ConstInt32(LUA_TNUMBER);
+   strType = ConstInt32(LUA_TSTRING);
 
    setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
@@ -1382,19 +1388,25 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    ints->              Load("ra"),
                        intType);
 
-   // else if (ttisnumber(rb) && ttisnumber(rc))
-   auto isrbnum = jit_isnumber(notints, rbtype);
-   auto isrcnum = jit_isnumber(notints, rctype);
+   // else {
+   //    Number rbnum = 0.0;
+   //    Number rcnum = 0.0;
+   notints->Store("rbnum", notints->Const(static_cast<lua_Number>(0.0)));
+   notints->Store("rcnum", notints->Const(static_cast<lua_Number>(0.0)));
+
+   //    if (tonumber(&rbnum, rb) && tonumber(&rcnum, rc)) {
+   auto rbnum = notints->Load("rbnum");
+   auto rcnum = notints->Load("rcnum");
+   auto isrbnum = jit_tonumber(notints, rbnum, rb);
+   auto isrcnum = jit_tonumber(notints, rcnum, rc);
 
    auto nums = notints->OrphanBuilder();
    auto notnums = notints->OrphanBuilder();
    notints->IfThenElse(&nums, &notnums,
    notints->           And(isrbnum, isrcnum));
 
-   // setfltvalue(ra, luai_num[add,sub,mul](L,tonumber(rb), tonumber(rc)));
-   TR::IlValue *rbnum = jit_tonumber(nums, rb, rbtype);
-   TR::IlValue *rcnum = jit_tonumber(nums, rc, rctype);
-
+   //       setfltvalue(ra, luai_num[add,sub,mul](L, rbnum, rcnum));
+   //    }
    TR::IlValue *numresult = nullptr;
    switch (GET_OPCODE(instruction)) {
    case OP_ADD:
@@ -1417,7 +1429,7 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    nums->              Load("ra"),
                        fltType);
 
-   // else { Protect(luaT_trybinTM(L, rb, rc, ra, (TM_ADD | TM_SUB | TM_MUL))); }
+   //    else { Protect(luaT_trybinTM(L, rb, rc, ra, (TM_ADD | TM_SUB | TM_MUL))); } }
    int operation = 0;
    switch (GET_OPCODE(instruction)) {
    case OP_ADD:
@@ -1464,24 +1476,27 @@ bool Lua::FunctionBuilder::do_pow(TR::BytecodeBuilder* builder, Instruction inst
 bool Lua::FunctionBuilder::do_div(TR::BytecodeBuilder* builder, Instruction instruction) {
    // rb = RKB(i);
    // rc = RKC(i);
+   // rbnum = 0.0;
+   // rcnum = 0.0;
+   // isrbnum = tonumber(&rbnum, rb);
+   // isrcnum = tonumber(&rcnum, rc);
    TR::IlValue *rb = jit_RK(builder, GETARG_B(instruction));
    TR::IlValue *rc = jit_RK(builder, GETARG_C(instruction));
+   builder->Store("rbnum", builder->Const(static_cast<lua_Number>(0.0)));
+   builder->Store("rcnum", builder->Const(static_cast<lua_Number>(0.0)));
+   auto rbnum = builder->Load("rbnum");
+   auto rcnum = builder->Load("rcnum");
+   auto isrbnum = jit_tonumber(builder, rbnum, rb);
+   auto isrcnum = jit_tonumber(builder, rcnum, rc);
 
-   // if (ttisnumber(rb) && ttisnumber(rc))
-   auto rbtype = builder->LoadIndirect("TValue", "tt_", rb);
-   auto isrbnum = jit_isnumber(builder, rbtype);
-   auto rctype = builder->LoadIndirect("TValue", "tt_", rc);
-   auto isrcnum = jit_isnumber(builder, rctype);
-
+   // if (isrbnum && isrcnum) setfltvalue(ra, luai_numdiv(L, rbnum, rcnum));
    auto nums = builder->OrphanBuilder();
    auto notnums = builder->OrphanBuilder();
    builder->IfThenElse(&nums, &notnums,
    builder->           And(isrbnum, isrcnum));
 
    // setfltvalue(ra, luai_numdiv(L,tonumber(rb), tonumber(rc)));
-   auto result = nums->Div(
-                 jit_tonumber(nums, rb, rbtype),
-                 jit_tonumber(nums, rc, rctype));
+   auto result = nums->Div(rbnum, rcnum);
    nums->StoreIndirect("Value", "n",
                        StructFieldAddress(nums, "TValue", "value_",
    nums->                                 Load("ra")),
@@ -1661,8 +1676,6 @@ bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* buil
    TR::IlValue *left = jit_RK(builder, GETARG_B(instruction));
    TR::IlValue *right = jit_RK(builder, GETARG_C(instruction));
 
-   TR::IlBuilder *notnums = nullptr;
-
    auto lefttype = builder->LoadIndirect("TValue", "tt_", left);
    auto righttype = builder->LoadIndirect("TValue", "tt_", right);
 
@@ -1704,46 +1717,49 @@ bool Lua::FunctionBuilder::do_cmp(const char* cmpFunc, TR::BytecodeBuilder* buil
    intnotle->     ConstInt32(0));
 
    // else if (ttisnumber(rb) && ttisnumber(rc))
-   auto isleftnum = jit_isnumber(notints, lefttype);
-   auto isrightnum = jit_isnumber(notints, righttype);
+   auto isleftflt = jit_isfloat(notints, lefttype);
+   auto isrightflt = jit_isfloat(notints, righttype);
 
-   TR::IlBuilder *cmpnums = nullptr;
-   notints->IfThenElse(&cmpnums, &notnums,
-   notints->           And(isleftnum, isrightnum));
+   TR::IlBuilder *cmpflts = nullptr;
+   TR::IlBuilder *notflts = nullptr;
+   notints->IfThenElse(&cmpflts, &notflts,
+   notints->           And(isleftflt, isrightflt));
 
    // return (float)l [<,<=] (float)r
-   TR::IlValue *leftnum = jit_tonumber(cmpnums, left, lefttype);
-   TR::IlValue *rightnum = jit_tonumber(cmpnums, right, righttype);
+   TR::IlValue *leftflt = cmpflts->LoadIndirect("Value", "n",
+                                                StructFieldAddress(cmpflts, "TValue", "value_", left));
+   TR::IlValue *rightflt = cmpflts->LoadIndirect("Value", "n",
+                                                 StructFieldAddress(cmpflts, "TValue", "value_", right));
 
-   TR::IlBuilder *numle = nullptr;
-   TR::IlBuilder *numnotle = nullptr;
+   TR::IlBuilder *fltle = nullptr;
+   TR::IlBuilder *fltnotle = nullptr;
    switch (GET_OPCODE(instruction)) {
    case OP_LT:
       // l < r is straight forward.
-      cmpnums->IfThenElse(&numle, &numnotle,
-      cmpnums->           LessThan(leftnum, rightnum));
+      cmpflts->IfThenElse(&fltle, &fltnotle,
+      cmpflts->           LessThan(leftflt, rightflt));
       break;
    case OP_LE:
       // l <= r can be replaced with !(l > r)
-      cmpnums->IfThenElse(&numnotle, &numle,
-      cmpnums->           GreaterThan(leftnum, rightnum));
+      cmpflts->IfThenElse(&fltnotle, &fltle,
+      cmpflts->           GreaterThan(leftflt, rightflt));
       break;
    default:
       break;
    }
 
-   numle->Store("cmp",
-   numle->     ConstInt32(1));
-   numnotle->Store("cmp",
-   numnotle->     ConstInt32(0));
+   fltle->Store("cmp",
+   fltle->     ConstInt32(1));
+   fltnotle->Store("cmp",
+   fltnotle->     ConstInt32(0));
 
-   notnums->Store("cmp",
-   notnums->      Call(cmpFunc, 3,
-   notnums->           Load("L"),
+   notflts->Store("cmp",
+   notflts->      Call(cmpFunc, 3,
+   notflts->           Load("L"),
                        left,
                        right));
 
-   jit_Protect(notnums); // from code inspection it appears like the comparison call
+   jit_Protect(notflts); // from code inspection it appears like the comparison call
                          // is the only thing that needs to be Protected because it
                          // calls `luaT_callTM`, which can reallocat the stack
 
@@ -1857,6 +1873,7 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
    luaFunc->        LoadIndirect("Proto", "compiledcode",
    luaFunc->                     Load("p")),
    luaFunc->        ConstAddress(NULL));
+
    auto readycompile =
    luaFunc->And(notblacklisted,
    luaFunc->    And(callcounter0, isnotcompiled));
@@ -2305,21 +2322,73 @@ parameters in JitBuilder. So, instead, the generated IL assumes that the `TValue
 number (a `lua_Integer` or a `lua_Number`) and returns the stored value as a `lua_Number`,
 applying a conversion if needed.
 */
-TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
-   auto isnum = builder->OrphanBuilder();
-   auto isint = builder->OrphanBuilder();
-   auto v = StructFieldAddress(builder, "TValue", "value_", value);
+TR::IlValue* Lua::FunctionBuilder::jit_tonumber(TR::IlBuilder* builder, TR::IlValue* dest, TR::IlValue* src) {
 
-   builder->IfThenElse(&isint, &isnum, jit_isinteger(builder, type));
+   // src_v = &src->value_;
+   // src_t = &src->tt_;
+   // success = 1;
+   auto src_v = StructFieldAddress(builder, "TValue", "value_", src);
+   auto src_t = builder->LoadIndirect("TValue", "tt_", src);
+   builder->Store("success", builder->Const(1));
 
-   isnum->Store("num",
-   isnum->      LoadIndirect("Value", "n", v));
+   // if (ttisfloat(src)) dest = src_v.n;
+   TR::IlBuilder* isflt = nullptr;
+   TR::IlBuilder* notflt = nullptr;
+   builder->IfThenElse(&isflt, &notflt, jit_isfloat(builder, src_t));
+   isflt->StoreOver(dest,
+   isflt->          LoadIndirect("Value", "n", src_v));
 
-   isint->Store("num",
-   isint->      ConvertTo(luaTypes.lua_Number,
-   isint->                LoadIndirect("Value", "i", v)));
+   // else if (ttisinteger(src)) dest = (lua_Number)src_v.i;
+   TR::IlBuilder* isint = nullptr;
+   TR::IlBuilder* notint = nullptr;
+   notflt->IfThenElse(&isint, &notint, jit_isinteger(notflt, src_t));
+   isint->StoreOver(dest,
+   isint->          ConvertTo(luaTypes.lua_Number,
+   isint->                    LoadIndirect("Value", "i", src_v)));
 
-   return builder->Load("num");
+   // else if (ttisstring(src)) {
+   //   TValue v;
+   //   len = luaO_str2num((char *)src_v->gc + sizeof(UTString), &v);
+   //   if (len == 0) success = 0;
+   //   else {
+   //     if (ttisinteger(v)) dest = v.value_.i;
+   //     else dest = v.value_.n;
+   //   }
+   // }
+   TR::IlBuilder* isstr = nullptr;
+   TR::IlBuilder* notstr = nullptr;
+   notint->IfThenElse(&isstr, &notstr, jit_isstring(notint, src_t));
+   auto v = isstr->CreateLocalStruct(luaTypes.TValue);
+   auto c_str_t = typeDictionary()->toIlType<char *>();
+   auto len =
+   isstr->      Call("luaO_str2num", 2,
+   isstr->           IndexAt(c_str_t,
+   isstr->                   ConvertTo(c_str_t,
+   isstr->                             LoadIndirect("Value", "gc", src_v)),
+   isstr->                   ConstInt64(sizeof(UTString))),
+                     v);
+
+   TR::IlBuilder* isstrnum = nullptr;
+   TR::IlBuilder* notstrnum = nullptr;
+   isstr->IfThenElse(&notstrnum, &isstrnum,
+   isstr->       EqualTo(
+                         len,
+   isstr->               ConstInt64(0)));
+
+   notstrnum->Store("success", notstrnum->Const(0));
+
+   auto vv = StructFieldAddress(isstrnum, "TValue", "value_", v);
+   auto vt = isstrnum->LoadIndirect("TValue", "tt_", v);
+   TR::IlBuilder* intv = nullptr;
+   TR::IlBuilder* numv = nullptr;
+   isstrnum->IfThenElse(&intv, &numv, jit_isinteger(isstrnum, vt));
+   intv->StoreOver(dest, intv->ConvertTo(luaTypes.lua_Number, intv->LoadIndirect("Value", "i", vv)));
+   numv->StoreOver(dest, numv->LoadIndirect("Value", "n", vv));
+
+   // else success = 0;
+   notstr->Store("success", notstr->Const(0));
+
+   return builder->Load("success");
 }
 
 TR::IlValue* Lua::FunctionBuilder::jit_tointeger(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type) {
@@ -2355,6 +2424,10 @@ TR::IlValue* Lua::FunctionBuilder::jit_ttnotnil(TR::IlBuilder* builder, TR::IlVa
    return builder->NotEqualTo(
           builder->        LoadIndirect("TValue", "tt_", value),
           builder->        Const(LUA_TNIL));
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_isstring(TR::IlBuilder* builder, TR::IlValue* type) {
+   return builder->And(type, strType);
 }
 
 // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -55,6 +55,17 @@ Lua::TypeDictionary::TypeDictionary() : TR::TypeDictionary() {
    UNION_FIELD_T(Value, n);                     // float numbers
    CloseUnion("Value");
 
+   luaTypes.TString = DEFINE_STRUCT(TString);
+   luaTypes.p_TString = PointerTo(luaTypes.TString);
+   DEFINE_FIELD(TString, next, pGCObject_t);             // CommonHeader
+   DEFINE_FIELD_T(TString, tt);                          //      |
+   DEFINE_FIELD_T(TString, marked);                      //      |
+   DEFINE_FIELD_T(TString, extra);                       // reserved words for short strings; "has hash" for longs
+   DEFINE_FIELD_T(TString, shrlen);                      // length for short strings
+   DEFINE_FIELD_T(TString, hash);
+   DEFINE_FIELD(TString, u.hnext, luaTypes.p_TString);   // linked list for hash table
+   CLOSE_STRUCT(TString);
+
    // struct TValue
    luaTypes.TValue = DEFINE_STRUCT(TValue);
    DEFINE_FIELD(TValue, value_, luaTypes.Value);

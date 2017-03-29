@@ -111,12 +111,13 @@ public:
     TR::IlValue* jit_RK(TR::BytecodeBuilder* builder, int arg); // equivalent to RKB and RKC in `lua/lvm.c`
     TR::IlValue* jit_clLvalue(TR::IlBuilder* builder, TR::IlValue* func);
     TR::IlValue* jit_checktag(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
-    TR::IlValue* jit_tonumber(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
+    TR::IlValue* jit_tonumber(TR::IlBuilder* builder, TR::IlValue* dest, TR::IlValue* src);
     TR::IlValue* jit_tointeger(TR::IlBuilder* builder, TR::IlValue* value, TR::IlValue* type);
     TR::IlValue* jit_isinteger(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_isfloat(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_ttnotnil(TR::IlBuilder* builder, TR::IlValue* value);
+    TR::IlValue* jit_isstring(TR::IlBuilder* builder, TR::IlValue* type);
 
     // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -128,6 +129,7 @@ private:
     TR::IlValue *intType;
     TR::IlValue *fltType;
     TR::IlValue *numType;
+    TR::IlValue *strType;
     TypeDictionary::LuaTypes luaTypes;
 };
 

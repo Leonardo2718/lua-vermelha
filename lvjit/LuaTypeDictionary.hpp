@@ -42,6 +42,8 @@ public:
       TR::IlType* lua_Number;
       TR::IlType* Instruction;
       TR::IlType* Value;
+      TR::IlType* TString;
+      TR::IlType* p_TString;
       TR::IlType* TValue;
       TR::IlType* StkId;
       TR::IlType* Proto;
