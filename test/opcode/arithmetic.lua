@@ -82,7 +82,19 @@ local num_args = {
   {3,     4},
   {3.3,   4},
   {3,     4.4},
-  {3.3,   4.4}
+  {3.3,   4.4},
+  {3,     "4"},
+  {3.3,   "4"},
+  {3,     "4.4"},
+  {3.3,   "4.4"},
+  {"3",   4},
+  {"3.3", 4},
+  {"3",   4.4},
+  {"3.3", 4.4},
+  {"3",   "4"},
+  {"3.3", "4"},
+  {"3",   "4.4"},
+  {"3.3", "4.4"}
 }
 
 local int_args = {
@@ -101,10 +113,11 @@ end
 
 local function test_runner(opname, argslist)
   setup_test(opname)
+  msg = opname.."(%s:%s, %s:%s)"
   for _,arguments in pairs(argslist) do
     expected = expfunc[opname](arguments[1],arguments[2])
     actual = testfunc[opname](arguments[1],arguments[2])
-    assert_equal(expected, actual, opname.."("..arguments[1]..", "..arguments[2]..")")
+    assert_equal(expected, actual, msg:format(arguments[1], type(arguments[1]), arguments[2], type(arguments[2])))
   end
 end
 
