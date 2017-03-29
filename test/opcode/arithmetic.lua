@@ -77,44 +77,54 @@ expfunc.op_unm  = function (x)    return -x end
 expfunc.op_bnot = function (x)    return ~x end
 expfunc.op_not  = function (x)    return not x end
 
--- test runner helpers
+-- test input data
+local num_args = {
+  {3,     4},
+  {3.3,   4},
+  {3,     4.4},
+  {3.3,   4.4}
+}
+
+local int_args = {
+  {3,     4},
+  {3.0,   4},
+  {3,     4.0},
+  {3.0,   4.0}
+}
+
+-- test runner
 local function setup_test(opname)
   assert_compile(testfunc[opname], opname)
   jit.setjitflags(expfunc[opname], jit.BLACKLIST)
   assert_equal(false, jit.iscompiled(expfunc[opname]), "expected (control) "..opname.." got compiled")
 end
 
--- test runners
-local function num_runner(opname)
+local function test_runner(opname, argslist)
   setup_test(opname)
-  assert_equal(expfunc[opname](3,4), testfunc[opname](3,4), opname.."(3,4)")
-  assert_equal(expfunc[opname](3.3,4), testfunc[opname](3.3,4), opname.."(3.3,4)")
-  assert_equal(expfunc[opname](3,4.4), testfunc[opname](3,4.4), opname.."(3,4.4)")
-  assert_equal(expfunc[opname](3.3,4.4), testfunc[opname](3.3,4.4), opname.."(3.3,4.4)")
+  for _,arguments in pairs(argslist) do
+    expected = expfunc[opname](arguments[1],arguments[2])
+    actual = testfunc[opname](arguments[1],arguments[2])
+    assert_equal(expected, actual, opname.."("..arguments[1]..", "..arguments[2]..")")
+  end
 end
 
-local function int_runner(opname)
-  setup_test(opname)
-  assert_equal(expfunc[opname](3,4), testfunc[opname](3,4), opname.."(3,4)")
-  assert_equal(expfunc[opname](3.0,4), testfunc[opname](3.0,4), opname.."(3.0,4)")
-  assert_equal(expfunc[opname](3,4.0), testfunc[opname](3,4.0), opname.."(3,4.0)")
-  assert_equal(expfunc[opname](3.0,4.0), testfunc[opname](3.0,4.0), opname.."(3.0,4.0)")
-end
+jit.setjitflags(setup_test, jit.BLACKLIST)
+jit.setjitflags(test_runner, jit.BLACKLIST)
 
 -- run tests
-num_runner("op_add")
-num_runner("op_sub")
-num_runner("op_mul")
-num_runner("op_mod")
-num_runner("op_pow")
-num_runner("op_div")
+test_runner("op_add", num_args)
+test_runner("op_sub", num_args)
+test_runner("op_mul", num_args)
+test_runner("op_mod", num_args)
+test_runner("op_pow", num_args)
+test_runner("op_div", num_args)
 
-int_runner("op_idiv")
-int_runner("op_band")
-int_runner("op_bor")
-int_runner("op_bxor")
-int_runner("op_shl")
-int_runner("op_shr")
+test_runner("op_idiv", int_args)
+test_runner("op_band", int_args)
+test_runner("op_bor", int_args)
+test_runner("op_bxor", int_args)
+test_runner("op_shl", int_args)
+test_runner("op_shr", int_args)
 
 setup_test("op_unm")
 assert_equal(expfunc.op_unm(5), testfunc.op_unm(5), "op_unm(5)")
