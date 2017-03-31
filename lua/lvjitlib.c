@@ -8,24 +8,28 @@
 
 #include "lauxlib.h"
 #include "lualib.h"
+#include "lobject.h"
 
 static int lvjit_checkjitflags(lua_State* L) {
-   int flags = lua_tointeger(L, -1);
-   int ret = lua_checkjitflags(L, -2, flags);
+   int flags = lua_tointeger(L, 2);
+   luaL_checktype(L, 1, LUA_TLCL);
+   int ret = lua_checkjitflags(L, 1, flags);
    lua_pushinteger(L, ret);
 
    return 1;
 }
 
 int lvjit_setjitflags(lua_State* L) {
-   int flags = lua_tointeger(L, -1);
-   lua_setjitflags(L, -2, flags);
+   int flags = lua_tointeger(L, 2);
+   luaL_checktype(L, 1, LUA_TLCL);
+   lua_setjitflags(L, 1, flags);
    return 0;
 }
 
 int lvjit_clearjitflags(lua_State* L) {
-   int flags = lua_tointeger(L, -1);
-   lua_clearjitflags(L, -2, flags);
+   int flags = lua_tointeger(L, 2);
+   luaL_checktype(L, 1, LUA_TLCL);
+   lua_clearjitflags(L, 1, flags);
    return 0;
 }
 
@@ -36,13 +40,15 @@ static int lvjit_initcallcounter(lua_State* L) {
 }
 
 static int lvjit_iscompiled(lua_State* L) {
-   int ret = lua_iscompiled(L, -1);
+   luaL_checktype(L, 1, LUA_TLCL);
+   int ret = lua_iscompiled(L, 1);
    lua_pushboolean(L, ret);
    return 1;
 }
 
 static int lvjit_compile(lua_State* L) {
-   int ret = lua_compile(L, -1);
+   luaL_checktype(L, 1, LUA_TLCL);
+   int ret = lua_compile(L, 1);
    lua_pushboolean(L, ret);
    return 1;
 }
