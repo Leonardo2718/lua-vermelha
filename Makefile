@@ -63,7 +63,7 @@ all: $(LUAV)
 
 
 $(LUAV): $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(LVJIT_LIBPATH) $(JITBUILDER_LIBPATH)
-	$(CXX) -o $@ $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(LVJIT_LIBPATH) $(JITBUILDER_LIBPATH) -ldl -lm -Wl,-E -lreadline
+	$(CXX) -o $@ $(LUA_DIR)/lua.o $(LUA_LIBPATH) $(LVJIT_LIBPATH) $(JITBUILDER_LIBPATH) -ldl -lm -lreadline
 
 $(LUA_DIR)/lua.o:
 	cd $(LUA_DIR) && $(MAKE) lua.o SYSCFLAGS="-DLUA_USE_LINUX" MYCFLAGS="$(LUA_BUILD_CONFIG_FLAGS)"
