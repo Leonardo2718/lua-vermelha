@@ -90,7 +90,7 @@ public:
     bool do_forprep(TR::BytecodeBuilder* builder, Instruction instruction);
 
     bool do_tforcall(TR::BytecodeBuilder* builder, Instruction instruction);
-    bool do_tforloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart);
+    bool do_tforloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction);
 
     bool do_setlist(TR::BytecodeBuilder* builder, Instruction instruction);
 
