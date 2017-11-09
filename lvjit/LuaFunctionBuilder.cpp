@@ -1784,9 +1784,6 @@ bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::Bytecode
 bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction instruction) {
    // ra = RA(i);
    TR::IlValue * ra = jit_R(builder, GETARG_A(instruction));
-   // b = GETARG_B(i);
-   builder->Store("b",
-   builder->      ConstInt32(GETARG_B(instruction)));
 
    // nresults = GETARG_C(i) - 1;
    builder->Store("nresults",
@@ -1795,17 +1792,14 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
    builder->          ConstInt32(1)));
 
    // if (b != 0) L->top = ra+b;
-   TR::IlBuilder* settop = builder->OrphanBuilder();
-   builder->IfThen(&settop,
-   builder->       NotEqualTo(
-   builder->                  Load("b"),
-   builder->                  ConstInt32(0)));
-
-   settop->StoreIndirect("lua_State", "top",
-   settop->               Load("L"),
-   settop->               IndexAt(luaTypes.StkId,
-                                  ra,
-   settop->                       Load("b")));
+   // Since b is a constant we can do the math a jit compilation time instead of at JIT runtime
+   if (GETARG_B(instruction) != 0) {
+      builder->StoreIndirect("lua_State", "top",
+      builder->               Load("L"),
+      builder->               IndexAt(luaTypes.StkId,
+                                      ra,
+      builder->                       ConstInt32(GETARG_B(instruction))));
+   }
 
    // if (luaD_precall(L, ra, nresults))
    auto isCFunc = builder->Call("luaD_precall", 3,
