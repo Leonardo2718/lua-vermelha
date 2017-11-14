@@ -1028,7 +1028,7 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_NEWTABLE:
          do_newtable(builder, instruction);
-            break;
+         break;
       case OP_SELF:
          do_self(builder, instruction);
          break;
