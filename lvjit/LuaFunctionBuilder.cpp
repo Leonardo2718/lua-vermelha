@@ -979,6 +979,8 @@ bool Lua::FunctionBuilder::buildIL() {
    fltType = ConstInt32(LUA_TNUMFLT);
    numType = ConstInt32(LUA_TNUMBER);
    strType = ConstInt32(LUA_TSTRING);
+   
+   AllLocalsHaveBeenDefined();
 
    setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
