@@ -991,6 +991,10 @@ bool Lua::FunctionBuilder::buildIL() {
       auto builder = bytecodeBuilders[instructionIndex];
       auto nextBuilder = (instructionIndex < instructionCount - 1) ? bytecodeBuilders[instructionIndex + 1] : nullptr;
 
+      if (TraceEnabled_log()) {
+         TraceIL_log("BC%d %s [MB %p]", builder->bcIndex(), builder->name(), this);
+      }
+
       switch (GET_OPCODE(instruction)) {
       case OP_MOVE:
          do_move(builder, instruction);
