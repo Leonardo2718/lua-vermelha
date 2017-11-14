@@ -1104,7 +1104,7 @@ bool Lua::FunctionBuilder::buildIL() {
          do_testset(builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_CALL:
-         do_call(builder, instruction);
+         do_call(builder, instruction, instructionIndex);
          break;
       case OP_TAILCALL:
          do_tailcall(builder, instruction, instructionIndex);
@@ -1787,7 +1787,7 @@ bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::Bytecode
    return true;
 }
 
-bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction instruction) {
+bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction instruction, unsigned int instructionIndex) {
    // ra = RA(i);
    TR::IlValue * ra = jit_R(builder, GETARG_A(instruction));
 
@@ -1806,6 +1806,9 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
                                       ra,
       builder->                       ConstInt32(GETARG_B(instruction))));
    }
+
+   // before we do any calls set savedpc so hooks can work
+   jit_setsavedpc(builder, instructionIndex);
 
    // if (luaD_precall(L, ra, nresults))
    auto isCFunc = builder->Call("luaD_precall", 3,
@@ -2425,6 +2428,16 @@ TR::IlValue* Lua::FunctionBuilder::jit_ttnotnil(TR::IlBuilder* builder, TR::IlVa
 
 TR::IlValue* Lua::FunctionBuilder::jit_isstring(TR::IlBuilder* builder, TR::IlValue* type) {
    return builder->And(type, strType);
+}
+
+void Lua::FunctionBuilder::jit_setsavedpc(TR::IlBuilder* builder, int instructionIndex) {
+   auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
+                builder->        Const(prototype->code),
+                builder->        ConstInt32(instructionIndex));
+
+   //set savedpc to newpc so the interpreter will start executing where the JIT stopped
+   builder->StoreIndirect("CallInfo", "u.l.savedpc",
+   builder->              Load("ci"), newpc);
 }
 
 // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

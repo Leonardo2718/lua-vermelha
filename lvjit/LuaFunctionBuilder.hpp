@@ -82,7 +82,7 @@ public:
     bool do_test(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
     bool do_testset(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* dest, Instruction instruction);
 
-    bool do_call(TR::BytecodeBuilder* builder, Instruction instruction);
+    bool do_call(TR::BytecodeBuilder* builder, Instruction instruction, unsigned int instructionIndex);
     bool do_tailcall(TR::BytecodeBuilder* builder, Instruction instruction, unsigned int instructionIndex);
     bool do_return(TR::BytecodeBuilder* builder, Instruction instruction);
 
@@ -118,6 +118,7 @@ public:
     TR::IlValue* jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type);
     TR::IlValue* jit_ttnotnil(TR::IlBuilder* builder, TR::IlValue* value);
     TR::IlValue* jit_isstring(TR::IlBuilder* builder, TR::IlValue* type);
+    void jit_setsavedpc(TR::IlBuilder* builder, int instructionIndex);
 
     // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
