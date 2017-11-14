@@ -1121,7 +1121,6 @@ bool Lua::FunctionBuilder::buildIL() {
          if (GET_OPCODE(instructions[instructionIndex + 1]) != OP_TFORLOOP) return false;
          break;
       case OP_TFORLOOP:
-         bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]->setVMState(new OMR::VirtualMachineState{});
          addBytecodeBuilderToWorklist(bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)]);
          do_tforloop(builder, bytecodeBuilders[instructionIndex + 1 + GETARG_sBx(instruction)], instruction);
          break;
@@ -2113,25 +2112,21 @@ bool Lua::FunctionBuilder::do_tforcall(TR::BytecodeBuilder* builder, Instruction
    return true;
 }
 
-bool Lua::FunctionBuilder::do_tforloop(TR::BytecodeBuilder* builder, TR::IlBuilder* loopStart, Instruction instruction) {
+bool Lua::FunctionBuilder::do_tforloop(TR::BytecodeBuilder* builder, TR::BytecodeBuilder* loopStart, Instruction instruction) {
    // ra = RA(i);
    TR::IlValue *ra = jit_R(builder, GETARG_A(instruction));
    // if (!ttisnil(ra + 1)) /* continue loop? */
-   TR::IlBuilder* continueLoop = nullptr;
-   //builder->Call("printInt", 1,
-   //builder->     );
-   builder->IfThen(&continueLoop,
-                   jit_ttnotnil(builder,
-   builder->                   IndexAt(luaTypes.StkId,
-                                       ra,
-   builder->                           Const(1))));
+   TR::BytecodeBuilder* continueLoop = nullptr;
+
+   TR::IlValue *one = builder->Const(1);
+   TR::IlValue *raOne = builder->IndexAt(luaTypes.StkId, ra, one);
+
+   builder->IfCmpNotEqual(&continueLoop,
+   builder->        LoadIndirect("TValue", "tt_", raOne),
+   builder->        Const(LUA_TNIL));
 
    // setobjs2s(L, ra, ra + 1);  /* save control variable */
-   jit_setobj(continueLoop,
-                            ra,
-   continueLoop->           IndexAt(luaTypes.StkId,
-                                    ra,
-   continueLoop->                   Const(1)));
+   jit_setobj(continueLoop, ra, raOne);
 
    // jump back
    continueLoop->Goto(&loopStart);
@@ -2409,12 +2404,6 @@ TR::IlValue* Lua::FunctionBuilder::jit_isfloat(TR::IlBuilder* builder, TR::IlVal
 
 TR::IlValue* Lua::FunctionBuilder::jit_isnumber(TR::IlBuilder* builder, TR::IlValue* type) {
    return builder->And(type, numType);
-}
-
-TR::IlValue* Lua::FunctionBuilder::jit_ttnotnil(TR::IlBuilder* builder, TR::IlValue* value) {
-   return builder->NotEqualTo(
-          builder->        LoadIndirect("TValue", "tt_", value),
-          builder->        Const(LUA_TNIL));
 }
 
 TR::IlValue* Lua::FunctionBuilder::jit_isstring(TR::IlBuilder* builder, TR::IlValue* type) {
