@@ -120,6 +120,10 @@ public:
     TR::IlValue* jit_isstring(TR::IlBuilder* builder, TR::IlValue* type);
     void jit_setsavedpc(TR::IlBuilder* builder, int instructionIndex);
 
+    TR::IlValue* jit_do_math(TR::IlBuilder* builder, Instruction instruction, TR::IlValue* left, TR::IlValue* right);
+    TR::IlValue* jit_get_type(TR::IlBuilder* builder, TR::IlValue *object, int arg);
+    TR::IlValue* jit_get_int_value(TR::IlBuilder* builder, TR::IlValue *object, int arg);
+
     // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     TR::IlValue* StructFieldAddress(TR::IlBuilder* builder, const char* structName, const char* fieldName, TR::IlValue* obj);
