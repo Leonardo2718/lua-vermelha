@@ -26,6 +26,7 @@
 #include <math.h>
 #include <stdio.h>
 
+#define DEBUG 0
 
 //~ convenience functions to be called from JITed code ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -270,7 +271,7 @@ StkId vm_mod(lua_State* L, Instruction i) {
    StkId ra = RA(i);
 
    // main body
-    TValue *rb = RKB(i);
+   TValue *rb = RKB(i);
    TValue *rc = RKC(i);
    lua_Number nb; lua_Number nc;
    if (ttisinteger(rb) && ttisinteger(rc)) {
@@ -961,6 +962,10 @@ bool Lua::FunctionBuilder::buildIL() {
    auto instructionCount = prototype->sizecode;
    auto instructions = prototype->code;
 
+#if DEBUG
+   fprintf(stderr, "Generating function %s\n", getMethodName());
+#endif
+
    TR::BytecodeBuilder** bytecodeBuilders = new TR::BytecodeBuilder*[instructionCount];
 
    for (auto i = 0; i < instructionCount; ++i) {
@@ -979,6 +984,8 @@ bool Lua::FunctionBuilder::buildIL() {
    fltType = ConstInt32(LUA_TNUMFLT);
    numType = ConstInt32(LUA_TNUMBER);
    strType = ConstInt32(LUA_TSTRING);
+   
+   AllLocalsHaveBeenDefined();
 
    setVMState(new OMR::VirtualMachineState{});
    AppendBuilder(bytecodeBuilders[0]);
@@ -988,6 +995,13 @@ bool Lua::FunctionBuilder::buildIL() {
       auto instruction = instructions[instructionIndex];
       auto builder = bytecodeBuilders[instructionIndex];
       auto nextBuilder = (instructionIndex < instructionCount - 1) ? bytecodeBuilders[instructionIndex + 1] : nullptr;
+
+      if (TraceEnabled_log()) {
+         TraceIL_log("BC%d %s [MB %p]", builder->bcIndex(), builder->name(), this);
+      }
+#if DEBUG
+      fprintf(stderr, "\t%s", (char*)luaP_opnames[GET_OPCODE(instruction)]);
+#endif
 
       switch (GET_OPCODE(instruction)) {
       case OP_MOVE:
@@ -1022,7 +1036,7 @@ bool Lua::FunctionBuilder::buildIL() {
          break;
       case OP_NEWTABLE:
          do_newtable(builder, instruction);
-            break;
+         break;
       case OP_SELF:
          do_self(builder, instruction);
          break;
@@ -1098,7 +1112,7 @@ bool Lua::FunctionBuilder::buildIL() {
          do_testset(builder, bytecodeBuilders[instructionIndex + 2], instruction);
          break;
       case OP_CALL:
-         do_call(builder, instruction);
+         do_call(builder, instruction, instructionIndex);
          break;
       case OP_TAILCALL:
          do_tailcall(builder, instruction, instructionIndex);
@@ -1138,6 +1152,10 @@ bool Lua::FunctionBuilder::buildIL() {
          return false;
       }
 
+#if DEBUG
+      fprintf(stderr, "\n");
+#endif
+
       if (nextBuilder) {
          builder->AddFallThroughBuilder(nextBuilder);
       }
@@ -1161,9 +1179,26 @@ bool Lua::FunctionBuilder::do_move(TR::BytecodeBuilder* builder, Instruction ins
 
 bool Lua::FunctionBuilder::do_loadk(TR::BytecodeBuilder* builder, Instruction instruction) {
    // setobj2s(L, ra, RBx(i));
-   jit_setobj(builder,
-              jit_R(builder, GETARG_A(instruction)),
-              jit_K(builder, GETARG_Bx(instruction)));
+   int arg = GETARG_Bx(instruction);
+   int raIndex = GETARG_A(instruction);
+#if DEBUG
+   fprintf(stderr, " ra %d RBx %d", raIndex, arg);
+#endif
+   TR::IlValue *ra = jit_R(builder, raIndex);
+
+   if (prototype->k[arg].tt_ == LUA_TNUMINT) {
+      TR::IlValue *value = builder->ConvertTo(typeDictionary()->toIlType<decltype(TValue::value_.i)>(),
+                           builder->          ConstInt64(prototype->k[arg].value_.i));
+      builder->StoreIndirect("Value", "i", ra, value);
+      builder->StoreIndirect("TValue", "tt_", ra, intType);
+   } else if(prototype->k[arg].tt_ == LUA_TNUMFLT) {
+      TR::IlValue *value = builder->ConvertTo(typeDictionary()->toIlType<decltype(TValue::value_.n)>(),
+                           builder->          Const(prototype->k[arg].value_.n));
+      builder->StoreIndirect("Value", "n", ra, value);
+      builder->StoreIndirect("TValue", "tt_", ra, fltType);
+   } else {
+	  jit_setobj(builder, ra, jit_K(builder, arg));
+   }
 
    return true;
 }
@@ -1342,18 +1377,21 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
    // ra = RA(i);
    // rb = RKB(i);
    // rc = RKC(i);
-   TR::IlValue *ra = jit_R(builder, GETARG_A(instruction));
-   TR::IlValue *rb = jit_RK(builder, GETARG_B(instruction));
-   TR::IlValue *rc = jit_RK(builder, GETARG_C(instruction));
+#if DEBUG
+   fprintf(stderr, " ra %d rb %d rc %d", GETARG_A(instruction), GETARG_B(instruction), GETARG_C(instruction));
+#endif
+   int arg_a = GETARG_A(instruction);
+   int arg_b = GETARG_B(instruction);
+   int arg_c = GETARG_C(instruction);
+   TR::IlValue *ra = jit_R(builder, arg_a);
+   TR::IlValue *rb = jit_RK(builder, arg_b);
+   TR::IlValue *rc = jit_RK(builder, arg_c);
 
    // if (ttisinteger(rb) && ttisinteger(rc))
-   auto rbtype = builder->LoadIndirect("TValue", "tt_", rb);
+   auto rbtype = jit_get_type(builder, rb, arg_b);
    auto isrbint = jit_isinteger(builder, rbtype);
-   auto rctype = builder->LoadIndirect("TValue", "tt_", rc);
+   auto rctype = jit_get_type(builder, rc, arg_c);
    auto isrcint = jit_isinteger(builder, rctype);
-
-   auto rb_value = StructFieldAddress(builder, "TValue", "value_", rb);
-   auto rc_value = StructFieldAddress(builder, "TValue", "value_", rc);
 
    auto ints = builder->OrphanBuilder();
    auto notints = builder->OrphanBuilder();
@@ -1362,23 +1400,9 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
 
    // lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
    // setivalue(ra, intop([+,-,*], ib, ic));
-   TR::IlValue *rbint = ints->LoadIndirect("Value", "i", rb_value);
-   TR::IlValue *rcint = ints->LoadIndirect("Value", "i", rc_value);
-   TR::IlValue *intresult = nullptr;
-   switch (GET_OPCODE(instruction)) {
-   case OP_ADD:
-      intresult = ints->Add(rbint, rcint);
-      break;
-   case OP_SUB:
-      intresult = ints->Sub(rbint, rcint);
-      break;
-   case OP_MUL:
-      intresult = ints->Mul(rbint, rcint);
-      break;
-   default:
-      break;
-   }
-
+   TR::IlValue *rbint = jit_get_int_value(ints, rb, arg_b);
+   TR::IlValue *rcint = jit_get_int_value(ints, rc, arg_c);
+   TR::IlValue *intresult = jit_do_math(ints, instruction, rbint, rcint);
    ints->StoreIndirect("Value", "i", StructFieldAddress(ints, "TValue", "value_", ra), intresult);
    ints->StoreIndirect("TValue", "tt_", ra, intType);
 
@@ -1401,20 +1425,7 @@ bool Lua::FunctionBuilder::do_math(TR::BytecodeBuilder* builder, Instruction ins
 
    //       setfltvalue(ra, luai_num[add,sub,mul](L, rbnum, rcnum));
    //    }
-   TR::IlValue *numresult = nullptr;
-   switch (GET_OPCODE(instruction)) {
-   case OP_ADD:
-      numresult = nums->Add(rbnum, rcnum);
-      break;
-   case OP_SUB:
-      numresult = nums->Sub(rbnum, rcnum);
-      break;
-   case OP_MUL:
-      numresult = nums->Mul(rbnum, rcnum);
-      break;
-   default:
-      break;
-   }
+   TR::IlValue *numresult = jit_do_math(nums, instruction, rbnum, rcnum);
    nums->StoreIndirect("Value", "n", StructFieldAddress(nums, "TValue", "value_", ra), numresult);
    nums->StoreIndirect("TValue", "tt_", ra, fltType);
 
@@ -1781,7 +1792,7 @@ bool Lua::FunctionBuilder::do_testset(TR::BytecodeBuilder* builder, TR::Bytecode
    return true;
 }
 
-bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction instruction) {
+bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction instruction, unsigned int instructionIndex) {
    // ra = RA(i);
    TR::IlValue * ra = jit_R(builder, GETARG_A(instruction));
 
@@ -1800,6 +1811,9 @@ bool Lua::FunctionBuilder::do_call(TR::BytecodeBuilder* builder, Instruction ins
                                       ra,
       builder->                       ConstInt32(GETARG_B(instruction))));
    }
+
+   // before we do any calls set savedpc so hooks can work
+   jit_setsavedpc(builder, instructionIndex);
 
    // if (luaD_precall(L, ra, nresults))
    auto isCFunc = builder->Call("luaD_precall", 3,
@@ -2419,6 +2433,62 @@ TR::IlValue* Lua::FunctionBuilder::jit_ttnotnil(TR::IlBuilder* builder, TR::IlVa
 
 TR::IlValue* Lua::FunctionBuilder::jit_isstring(TR::IlBuilder* builder, TR::IlValue* type) {
    return builder->And(type, strType);
+}
+
+void Lua::FunctionBuilder::jit_setsavedpc(TR::IlBuilder* builder, int instructionIndex) {
+   auto newpc = builder->IndexAt(typeDictionary()->PointerTo(luaTypes.Instruction),
+                builder->        Const(prototype->code),
+                builder->        ConstInt32(instructionIndex));
+
+   //set savedpc to newpc so the interpreter will start executing where the JIT stopped
+   builder->StoreIndirect("CallInfo", "u.l.savedpc",
+   builder->              Load("ci"), newpc);
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_do_math(TR::IlBuilder* builder, Instruction instruction, TR::IlValue* left, TR::IlValue* right) {
+   TR::IlValue *result = nullptr;
+   switch (GET_OPCODE(instruction)) {
+   case OP_ADD:
+     result = builder->Add(left, right);
+     break;
+   case OP_SUB:
+     result = builder->Sub(left, right);
+     break;
+   case OP_MUL:
+     result = builder->Mul(left, right);
+     break;
+   default:
+     break;
+   }
+   return result;
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_get_type(TR::IlBuilder* builder, TR::IlValue *object, int arg) {
+   if (ISK(arg)) {
+      int constantIndex = INDEXK(arg);
+      if (ttisinteger(&prototype->k[constantIndex])) {
+         return intType;
+      } else if (ttisfloat(&prototype->k[constantIndex])) {
+         return fltType;
+      } else {
+         return builder->ConvertTo(typeDictionary()->toIlType<decltype(TValue::tt_)>(),
+                builder->          Const(prototype->k[constantIndex].tt_));
+      }
+   } else {
+      return builder->LoadIndirect("TValue", "tt_", object);
+   }
+}
+
+TR::IlValue* Lua::FunctionBuilder::jit_get_int_value(TR::IlBuilder* builder, TR::IlValue *object, int arg) {
+   if (ISK(arg)) {
+      /* TODO assert prototype->k[constantIndex].tt_ == LUA_TNUMINT */
+      int constantIndex = INDEXK(arg);
+      return builder->ConvertTo(typeDictionary()->toIlType<decltype(TValue::value_.i)>(),
+             builder->          ConstInt64(prototype->k[constantIndex].value_.i));
+   } else {
+      auto value = StructFieldAddress(builder, "TValue", "value_", object);
+      return builder->LoadIndirect("Value", "i", value);
+   }
 }
 
 // jitbuilder extensions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
