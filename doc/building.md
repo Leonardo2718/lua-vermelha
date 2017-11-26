@@ -104,7 +104,7 @@ $ make liblua.a SYSCFLAGS="-DLUA_USE_LINUX"
 
 ## Putting it all together
 
-Once the three components have bee built separately, they can be linked
+Once the three components have been built separately, they can be linked
 into an application. It's important that linking be done either by a
 C++ compiler or by explicitly linking the C++ standard library.
 
